@@ -40,22 +40,13 @@ void WEAK hard_fault_handler(void);
 void WEAK mem_manage_handler(void);
 void WEAK bus_fault_handler(void);
 void WEAK usage_fault_handler(void);
-#ifdef FREERTOS
 extern void vPortSVCHandler(void);
 #define sv_call_handler vPortSVCHandler
-#else
-void WEAK sv_call_handler(void);
-#endif
 void WEAK debug_monitor_handler(void);
-#ifdef FREERTOS
 extern void xPortPendSVHandler(void);
 extern void xPortSysTickHandler(void);
 #define pend_sv_handler xPortPendSVHandler
 #define sys_tick_handler xPortSysTickHandler
-#else
-void WEAK pend_sv_handler(void);
-void WEAK sys_tick_handler(void);
-#endif
 void WEAK wwdg_isr(void);
 void WEAK pvd_isr(void);
 void WEAK tamper_isr(void);
@@ -230,14 +221,10 @@ void null_handler(void)
 #pragma weak mem_manage_handler = blocking_handler
 #pragma weak bus_fault_handler = blocking_handler
 #pragma weak usage_fault_handler = blocking_handler
-#ifdef FREERTOS
 #pragma weak sv_call_handler = null_handler
-#endif
 #pragma weak debug_monitor_handler = null_handler
-#ifdef FREERTOS
 #pragma weak pend_sv_handler = null_handler
 #pragma weak sys_tick_handler = null_handler
-#endif
 #pragma weak wwdg_isr = null_handler
 #pragma weak pvd_isr = null_handler
 #pragma weak tamper_isr = null_handler
@@ -298,3 +285,4 @@ void null_handler(void)
 #pragma weak dma2_channel2_isr = null_handler
 #pragma weak dma2_channel3_isr = null_handler
 #pragma weak dma2_channel4_5_isr = null_handler
+

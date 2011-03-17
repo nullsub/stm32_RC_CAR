@@ -35,7 +35,6 @@ TCHAIN_PREFIX = arm-none-eabi-
 REMOVE_CMD = rm
 
 FLASH_TOOL = OPENOCD
-RTOS ?= FREERTOS
 
 # YES enables -mthumb option to flags for source-files listed
 # in SRC and CPPSRC
@@ -67,11 +66,9 @@ STMSPDDIR = $(STMLIBDIR)/STM32F10x_StdPeriph_Driver
 STMSPDSRCDIR = $(STMSPDDIR)/src
 STMSPDINCDIR = $(STMSPDDIR)/inc
 CMSISDIR  = $(STMLIBDIR)/CMSIS/CM3
-ifeq ($(RTOS),FREERTOS)
 RTOSDIR = freertos
 RTOSSRCDIR = $(RTOSDIR)/Source
 RTOSINCDIR = $(RTOSSRCDIR)/include
-endif
 #DOXYGENDIR = doc/doxygen
 
 # List C source files here. (C dependencies are automatically generated.)
@@ -112,7 +109,6 @@ SRC += $(STMSPDSRCDIR)/stm32f10x_usart.c
 SRC += $(STMSPDSRCDIR)/misc.c
 
 ## RTOS
-ifeq ($(RTOS),FREERTOS)
 SRC += $(RTOSSRCDIR)/list.c
 SRC += $(RTOSSRCDIR)/queue.c
 SRC += $(RTOSSRCDIR)/tasks.c
@@ -120,7 +116,6 @@ SRC += $(RTOSSRCDIR)/tasks.c
 ## RTOS Portable
 SRC += $(RTOSSRCDIR)/portable/GCC/ARM_CM3/port.c
 SRC += $(RTOSSRCDIR)/portable/MemMang/heap_1.c
-endif
 
 # List C source files here which must be compiled in ARM-Mode (no -mthumb).
 # use file-extension c for "c-only"-files
@@ -157,11 +152,9 @@ EXTRAINCDIRS  += $(CMSISDIR)/CoreSupport
 EXTRAINCDIRS  += $(CMSISDIR)/DeviceSupport/ST/STM32F10x
 EXTRAINCDIRS  += $(STM32DIR)
 EXTRAINCDIRS  += $(STMSPDINCDIR)
-ifeq ($(RTOS),FREERTOS)
 EXTRAINCDIRS  += $(RTOSDIR)
 EXTRAINCDIRS  += $(RTOSINCDIR)
 EXTRAINCDIRS  += $(RTOSSRCDIR)/portable/GCC/ARM_CM3
-endif
 
 # List any extra directories to look for library files here.
 # Also add directories where the linker should search for
@@ -199,9 +192,6 @@ CDEFS += -DHSE_VALUE=$(F_XTAL)UL
 CDEFS += -D$(SYSCLOCK_CL)
 ifneq ($(STACK_SIZE),)
 CDEFS += -DSTACK_SIZE=$(STACK_SIZE)
-endif
-ifneq ($(RTOS),)
-CDEFS += -D$(RTOS)
 endif
 
 # Optimization level, can be [0, 1, 2, 3, s].
