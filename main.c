@@ -36,6 +36,7 @@
 /* Includes */
 #include "common.h"
 #include "tprintf.h"
+#include "servo.h"
 
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
@@ -45,14 +46,13 @@
 static void setup_rcc(void);
 static void setup_gpio(void);
 static void setup_exti(void);
-static void setup_rtc(void);
-static void setup_timer(void);
 static void setup_usart(void);
 static void setup_nvic(void);
 static void main_noreturn(void) NORETURN;
 
 static void blink_task(void *pvParameters) NORETURN;
 static void debounce_task(void *pvParameters) NORETURN;
+
 static void setup(void);
 
 static void blink_toggle_blue(void);
@@ -96,8 +96,10 @@ inline void main_noreturn(void)
 {
 	xTaskHandle task;
 
-	/* Create the blink task */
 	xTaskCreate(blink_task, (signed portCHAR *)"blink", configMINIMAL_STACK_SIZE , NULL, tskIDLE_PRIORITY + 1, &task);
+	assert_param(task);
+
+	xTaskCreate(servo_task, (signed portCHAR *)"servo Ctrl", configMINIMAL_STACK_SIZE  , NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);
 
 	/* Start the FreeRTOS scheduler */
@@ -127,13 +129,18 @@ void setup_rcc(void)
 {
 	/* Enable PWR clock */
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR |
-			RCC_APB1Periph_BKP, ENABLE);
+			RCC_APB1Periph_BKP | RCC_APB1Periph_TIM2
+			, ENABLE);
 
 	/* Enable GPIOA and GPIOC clock */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA |
 			RCC_APB2Periph_GPIOC |
 			RCC_APB2Periph_USART1 |
 			RCC_APB2Periph_AFIO, ENABLE);
+
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE); 
+
+
 }
 
 /**
@@ -151,8 +158,8 @@ void setup_gpio(void)
 	gpio_init.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &gpio_init);
 
-	/* Configure PC5 (ADC Channel15) as analog input */
-	gpio_init.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9;
+	//config LED pins and servo
+	gpio_init.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9 | SERVO_PIN_0 | SERVO_PIN_1; 
 	gpio_init.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_Init(GPIOC, &gpio_init);
 
@@ -166,10 +173,10 @@ void setup_gpio(void)
 }
 
 /**
-  * @brief  Configures EXTI Lines
-  * @param  None
-  * @retval None
-  */
+ * @brief  Configures EXTI Lines
+ * @param  None
+ * @retval None
+ */
 void setup_exti(void)
 {
 	EXTI_InitTypeDef EXTI_InitStructure;
@@ -183,10 +190,10 @@ void setup_exti(void)
 }
 
 /**
-  * @brief  Configures USART controller
-  * @param  None
-  * @retval None
-  */
+ * @brief  Configures USART controller
+ * @param  None
+ * @retval None
+ */
 void setup_usart(void)
 {
 	USART_InitTypeDef usart_init;
@@ -204,10 +211,10 @@ void setup_usart(void)
 }
 
 /**
-  * @brief  Configure the nested vectored interrupt controller
-  * @param  None
-  * @retval None
-  */
+ * @brief  Configure the nested vectored interrupt controller
+ * @param  None
+ * @retval None
+ */
 void setup_nvic(void)
 {
 	NVIC_InitTypeDef nvic_init;
@@ -227,18 +234,51 @@ void setup_nvic(void)
 	nvic_init.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&nvic_init);
 
+
 	/* Configure EXTI interrupt */
 	nvic_init.NVIC_IRQChannel = EXTI0_IRQn;
 	nvic_init.NVIC_IRQChannelPreemptionPriority = 0xc;
 	nvic_init.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&nvic_init);
+
+	/* Configure Servo interrupt */
+	nvic_init.NVIC_IRQChannel = TIM2_IRQn;
+	nvic_init.NVIC_IRQChannelPreemptionPriority = 0x2;
+	nvic_init.NVIC_IRQChannelSubPriority = 0; 
+	nvic_init.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&nvic_init);
+
+	//--------------- do this in sero_init....-------------------------------//
+	TIM_TimeBaseInitTypeDef timer_settings; 
+	/* TIM2CLK = 24 MHz, Prescaler = 160, TIM2 counter clock = 150000 Hz 
+	 * 24MHz / (160) = 150000Hz 
+	 * 75 * (1/150000Hz) = 0.0005S overflow interrupt */ 
+
+	/* Time base configuration */ 
+	timer_settings.TIM_Period = 100;  	
+	timer_settings.TIM_Prescaler = 160-1; 
+	timer_settings.TIM_ClockDivision = TIM_CKD_DIV1; 
+	timer_settings.TIM_CounterMode = TIM_CounterMode_Up; 
+	TIM_TimeBaseInit(TIM2, &timer_settings); 
+
+	/* Clear TIM2 update pending flag */ 
+	TIM_ClearFlag(TIM2, TIM_FLAG_Update); 
+
+	/* TIM IT enable */ 
+	TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE); 
+
+	TIM_ClearFlag(TIM2, TIM_FLAG_Update); 
+
+	TIM_Cmd(TIM2, ENABLE); 
+	//-----------------------------------------------------------//
+
 }
 
 /**
-  * @brief  This function handles USART interrupt request.
-  * @param  None
-  * @retval None
-  */
+ * @brief  This function handles USART interrupt request.
+ * @param  None
+ * @retval None
+ */
 void usart1_isr(void)
 {
 	portBASE_TYPE task_woken;
@@ -257,10 +297,10 @@ void usart1_isr(void)
 }
 
 /**
-  * @brief  This function handles External line 0 interrupt request.
-  * @param  None
-  * @retval None
-  */
+ * @brief  This function handles External line 0 interrupt request.
+ * @param  None
+ * @retval None
+ */
 void exti0_isr(void)
 {
 	static signed portBASE_TYPE task_woken;
@@ -317,6 +357,8 @@ void debounce_task(void *pvParameters)
 {
 	portTickType delay = portMAX_DELAY;
 	uint8_t debounce = 0;
+
+	blink_toggle_blue();
 
 	for (;;)
 	{

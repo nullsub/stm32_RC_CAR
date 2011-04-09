@@ -77,6 +77,9 @@ RTOSINCDIR = $(RTOSSRCDIR)/include
 ## MAIN:
 SRC = main.c
 
+## Application
+SRC += servo.c
+
 ## COMMON:
 ifeq ($(DEBUG),YES)
 SRC += $(COMMONDIR)/fault.c
@@ -155,6 +158,7 @@ EXTRAINCDIRS  += $(STMSPDINCDIR)
 EXTRAINCDIRS  += $(RTOSDIR)
 EXTRAINCDIRS  += $(RTOSINCDIR)
 EXTRAINCDIRS  += $(RTOSSRCDIR)/portable/GCC/ARM_CM3
+EXTRAINCDIRS  += / 
 
 # List any extra directories to look for library files here.
 # Also add directories where the linker should search for

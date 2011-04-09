@@ -1,5 +1,5 @@
 file build/template.elf
-target remote :3333
+target remote :1234
 monitor reset halt
 tbreak main
 

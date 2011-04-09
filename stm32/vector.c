@@ -75,7 +75,9 @@ void WEAK tim1_brk_isr(void);
 void WEAK tim1_up_isr(void);
 void WEAK tim1_trg_com_isr(void);
 void WEAK tim1_cc_isr(void);
-void WEAK tim2_isr(void);
+
+extern void tim2_isr(void);
+
 void WEAK tim3_isr(void);
 void WEAK tim4_isr(void);
 void WEAK i2c1_ev_isr(void);
@@ -253,7 +255,7 @@ void null_handler(void)
 #pragma weak tim1_up_isr = null_handler
 #pragma weak tim1_trg_com_isr = null_handler
 #pragma weak tim1_cc_isr = null_handler
-#pragma weak tim2_isr = null_handler
+//#pragma weak tim2_isr = null_handler
 #pragma weak tim3_isr = null_handler
 #pragma weak tim4_isr = null_handler
 #pragma weak i2c1_ev_isr = null_handler
