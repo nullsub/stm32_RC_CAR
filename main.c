@@ -96,11 +96,11 @@ inline void main_noreturn(void)
 {
 	xTaskHandle task;
 
+	servo_init();
+
 	xTaskCreate(blink_task, (signed portCHAR *)"blink", configMINIMAL_STACK_SIZE , NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);
 
-	xTaskCreate(servo_task, (signed portCHAR *)"servo Ctrl", configMINIMAL_STACK_SIZE  , NULL, tskIDLE_PRIORITY + 1, &task);
-	assert_param(task);
 
 	/* Start the FreeRTOS scheduler */
 	vTaskStartScheduler();
@@ -255,7 +255,7 @@ void setup_nvic(void)
 	 * 75 * (1/150000Hz) = 0.0005S overflow interrupt */ 
 
 	/* Time base configuration */ 
-	timer_settings.TIM_Period = 100;  	
+	timer_settings.TIM_Period = 6500;  	
 	timer_settings.TIM_Prescaler = 160-1; 
 	timer_settings.TIM_ClockDivision = TIM_CKD_DIV1; 
 	timer_settings.TIM_CounterMode = TIM_CounterMode_Up; 

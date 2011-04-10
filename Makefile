@@ -204,7 +204,7 @@ endif
 
 ifeq ($(DEBUG),YES)
 CDEFS += -DDEBUG
-OPT = 0
+OPT = 2
 else
 OPT = s
 endif

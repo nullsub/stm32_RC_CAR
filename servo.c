@@ -1,5 +1,7 @@
 
 #include "servo.h"
+#include <string.h>
+
 /* STM32 includes */
 #include <stm32f10x.h>
 #include <stm32f10x_conf.h>
@@ -7,65 +9,114 @@
 #include <FreeRTOS.h>
 #include "semphr.h"
 
-#define TIME_100_US 15 //0.1ms timer value
-#define TIME_100_MS TIME_100_US*10 //1ms timer value
+#define TIME_100_US 	15 		//0.1ms timer value
+#define TIME_1_MS 	TIME_100_US*10 	//1ms timer value
 
-static double servo_state[NR_OF_SERVO];
-
-struct servo{
-	int pin;
-	double state;
-};
-
-static xSemaphoreHandle servo_cpy_mutex;
+#define SERVO_UPDATE_TIME_MS 19 	// the update period of the servos. this time is not critical 
 
 
 
+const int servo_pin[NR_OF_SERVOS] = {SERVO_PIN_0};
 
-void servo_task(void *pvParameters)
-{
-	struct servo servos[NR_OF_SERVO];
+static unsigned int servo_state[NR_OF_SERVOS]; 
+/*when servo_update is called, this is copied 
+into servo_state_INT, this done to ensure that interrupts are enabled as long as possible*/
 
-	servo_cpy_mutex = xSemaphoreCreateMutex();
-
-	servo_init();
-
-	while(1){
-		taskYIELD();	
-	}
-}
-
-
+static unsigned int servo_state_INT[NR_OF_SERVOS]; // used in the interrupt
 
 void servo_init()
 {
-	for(int i = 0; i < NR_OF_SERVO; i++)
+	for(int i = 0; i < NR_OF_SERVOS; i++)
 	{
-		servo_state[i] = SERVO_MIDDLE;
+		servo_set(SERVO_MIDDLE, i);
 	}
 
+	servo_update();
+	
 }
 
-void servo_set(double val, enum servo_nr servo)
+void servo_set(unsigned int val, unsigned int servo_nr)
 {
-	xSemaphoreTake(servo_cpy_mutex,  portMAX_DELAY);
-	servo_state[servo] = val;
-	xSemaphoreGive(servo_cpy_mutex);	
+	if(val < 10 || val > 20 ){
+		return;
+	}
+	if(servo_nr >= NR_OF_SERVOS) {
+		return;
+	}
+
+	val = 250;	
+
+	servo_state[servo_nr] = val*TIME_100_US;    		// 10 is left, 20 is right , 15 is middle!
 }
+
+
+
+static inline void swap(int *x,int *y)
+{
+   int temp;
+   temp = *x;
+   *x = *y;
+   *y = temp;
+}
+
+
+void servo_update()
+{
+// use bubble sort to update the order
+#if NR_OF_SERVOS > 1
+/*	for(int i = 0; i<(NR_OF_SERVOS-1);i++) {
+		for(int j = 0; j<(NR_OF_SERVOS-(i+1));j++) {
+			if(servo_state[j] > servo_state[j+1]) {
+				swap(&servo_state[j],&servo_state[j+1]);
+			}
+		}
+	}
+*/
+#endif
+
+	// I really dont know how to do this better!?	
+//	taskDISABLE_INTERRUPTS();
+	for(int i = 0; i < NR_OF_SERVOS; i++) {
+		servo_state_INT[i] = servo_state[i];
+	}
+//	taskENABLE_INTERRUPTS();	
+}
+
+enum {
+	START_PULSE,
+	STOP_PULSE
+};
 
 void tim2_isr(void)
 {
-	if(GPIO_ReadOutputDataBit(SERVO_PORT,SERVO_PIN_0) == 1) { 
-		GPIO_WriteBit(SERVO_PORT,SERVO_PIN_0, 0); // start Pulse at the same time for all
+	static int state = START_PULSE;
+	static unsigned int crrnt_servo;
+	unsigned int next_time;
 
-		/* Set the Autoreload value */
-		TIM2->ARR = TIME_100_US; // shortest time needed...  all testing
+	switch (state) {
+		case START_PULSE:		
+			for(int i = 0; i < NR_OF_SERVOS; i++){
+				GPIO_WriteBit(SERVO_PORT, servo_pin[crrnt_servo], 1); // start Pulse at the same time for all
+			}
+			next_time = servo_state_INT[0];
+			crrnt_servo = 0;
+			state = STOP_PULSE;
+			break;
+		case STOP_PULSE:
+			do{
+				next_time = servo_state_INT[crrnt_servo];
+				GPIO_WriteBit(SERVO_PORT, servo_pin[crrnt_servo], 0); 
+				crrnt_servo ++; // broken!
+			} while(next_time == 0 && crrnt_servo < NR_OF_SERVOS);
+			if(crrnt_servo >= NR_OF_SERVOS){
+				state = START_PULSE;
+				next_time = SERVO_UPDATE_TIME_MS*TIME_1_MS;
+				break;
+			}
+			break;
 	}
-	else {
-		GPIO_WriteBit(SERVO_PORT,SERVO_PIN_0, 1); // start Pulse at the same time for all
 
-		TIM2->ARR = TIME_1_MS * 20 ; // 20ms == longest time needed
-	}
+	TIM2->ARR = next_time;
 
 	TIM_ClearFlag(TIM2, TIM_FLAG_Update);         //Interrupt Flag von TIM2 Löschen
 }
