@@ -96,7 +96,7 @@ inline void main_noreturn(void)
 {
 	xTaskHandle task;
 
-	servo_init();
+
 
 	xTaskCreate(blink_task, (signed portCHAR *)"blink", configMINIMAL_STACK_SIZE , NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);
@@ -244,9 +244,13 @@ void setup_nvic(void)
 	/* Configure Servo interrupt */
 	nvic_init.NVIC_IRQChannel = TIM2_IRQn;
 	nvic_init.NVIC_IRQChannelPreemptionPriority = 0x2;
-	nvic_init.NVIC_IRQChannelSubPriority = 0; 
 	nvic_init.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&nvic_init);
+
+
+
+	servo_init();
+
 
 	//--------------- do this in sero_init....-------------------------------//
 	TIM_TimeBaseInitTypeDef timer_settings; 
@@ -255,7 +259,7 @@ void setup_nvic(void)
 	 * 75 * (1/150000Hz) = 0.0005S overflow interrupt */ 
 
 	/* Time base configuration */ 
-	timer_settings.TIM_Period = 6500;  	
+	timer_settings.TIM_Period = 650;  	
 	timer_settings.TIM_Prescaler = 160-1; 
 	timer_settings.TIM_ClockDivision = TIM_CKD_DIV1; 
 	timer_settings.TIM_CounterMode = TIM_CounterMode_Up; 
@@ -347,7 +351,7 @@ void blink_task(void *pvParameters)
 
 	for (;;)
 	{
-		vTaskDelayUntil(&last_wake, (2 * MS_PER_SEC) / portTICK_RATE_MS);
+		vTaskDelayUntil(&last_wake, (1 * MS_PER_SEC) / portTICK_RATE_MS);
 		blink_toggle_green();
 		tprintf("tick=%d\r\n", last_wake);
 	}

@@ -14,15 +14,15 @@
 
 #define SERVO_UPDATE_TIME_MS 19 	// the update period of the servos. this time is not critical 
 
+#define ALL_SERVO_PINS (SERVO_PIN_0 |  SERVO_PIN_1)
 
-
-const int servo_pin[NR_OF_SERVOS] = {SERVO_PIN_0};
+const int servo_pin[NR_OF_SERVOS] = {SERVO_PIN_0, SERVO_PIN_1};
 
 static unsigned int servo_state[NR_OF_SERVOS]; 
 /*when servo_update is called, this is copied 
-into servo_state_INT, this done to ensure that interrupts are enabled as long as possible*/
+  into servo_state_INT, this done to ensure that interrupts are enabled as long as possible*/
 
-static unsigned int servo_state_INT[NR_OF_SERVOS]; // used in the interrupt
+static volatile unsigned int servo_state_INT[NR_OF_SERVOS]; // used in the interrupt
 
 void servo_init()
 {
@@ -32,7 +32,7 @@ void servo_init()
 	}
 
 	servo_update();
-	
+
 }
 
 void servo_set(unsigned int val, unsigned int servo_nr)
@@ -44,76 +44,80 @@ void servo_set(unsigned int val, unsigned int servo_nr)
 		return;
 	}
 
-	val = 250;	
-
 	servo_state[servo_nr] = val*TIME_100_US;    		// 10 is left, 20 is right , 15 is middle!
 }
 
 
 
-static inline void swap(int *x,int *y)
+static inline void swap(unsigned int *x, unsigned int *y)
 {
-   int temp;
-   temp = *x;
-   *x = *y;
-   *y = temp;
+	unsigned int temp;
+	temp = *x;
+	*x = *y;
+	*y = temp;
 }
 
 
 void servo_update()
 {
-// use bubble sort to update the order
-#if NR_OF_SERVOS > 1
-/*	for(int i = 0; i<(NR_OF_SERVOS-1);i++) {
-		for(int j = 0; j<(NR_OF_SERVOS-(i+1));j++) {
-			if(servo_state[j] > servo_state[j+1]) {
-				swap(&servo_state[j],&servo_state[j+1]);
+	// use bubble sort to update the order
+	if(NR_OF_SERVOS > 1) {	
+		for(int i = 0; i<(NR_OF_SERVOS-1);i++) {
+			for(int j = 0; j<(NR_OF_SERVOS-(i+1));j++) {
+				if(servo_state[j] > servo_state[j+1]) {
+					swap(&servo_state[j],&servo_state[j+1]);
+				}
 			}
 		}
 	}
-*/
-#endif
+	
+	int length = 0;
+	for(int i = 1; i < NR_OF_SERVOS; i++) {  //ordering now with offset
+		length += servo_state[i-1];
+		servo_state[i] -= length; 	
+	}	
 
 	// I really dont know how to do this better!?	
-//	taskDISABLE_INTERRUPTS();
+	taskDISABLE_INTERRUPTS();
 	for(int i = 0; i < NR_OF_SERVOS; i++) {
 		servo_state_INT[i] = servo_state[i];
 	}
-//	taskENABLE_INTERRUPTS();	
+	taskENABLE_INTERRUPTS();	
 }
 
-enum {
-	START_PULSE,
-	STOP_PULSE
-};
+#define START_PULSE 1
+#define STOP_PULSE 0
 
-void tim2_isr(void)
+void tim2_isr(void) 			//__attribute__ ((interrupt)) this interrupt breaks if it is optimized!!!!!!!!!!!!
 {
 	static int state = START_PULSE;
 	static unsigned int crrnt_servo;
-	unsigned int next_time;
+	uint16_t next_time = SERVO_UPDATE_TIME_MS * TIME_1_MS;
 
-	switch (state) {
-		case START_PULSE:		
-			for(int i = 0; i < NR_OF_SERVOS; i++){
-				GPIO_WriteBit(SERVO_PORT, servo_pin[crrnt_servo], 1); // start Pulse at the same time for all
-			}
-			next_time = servo_state_INT[0];
-			crrnt_servo = 0;
-			state = STOP_PULSE;
-			break;
-		case STOP_PULSE:
-			do{
-				next_time = servo_state_INT[crrnt_servo];
-				GPIO_WriteBit(SERVO_PORT, servo_pin[crrnt_servo], 0); 
-				crrnt_servo ++; // broken!
-			} while(next_time == 0 && crrnt_servo < NR_OF_SERVOS);
-			if(crrnt_servo >= NR_OF_SERVOS){
-				state = START_PULSE;
-				next_time = SERVO_UPDATE_TIME_MS*TIME_1_MS;
-				break;
-			}
-			break;
+	if(state == START_PULSE) {		
+   		SERVO_PORT->BSRR = ALL_SERVO_PINS; // can take full mask of all bits!
+		next_time = servo_state_INT[0];
+		crrnt_servo = 0;
+		state = STOP_PULSE;
+	}
+	else if( state ==  STOP_PULSE){
+    		SERVO_PORT->BRR = servo_pin[crrnt_servo];
+	
+		crrnt_servo ++;
+		if(crrnt_servo < NR_OF_SERVOS) { // "not the last"
+			next_time = servo_state_INT[crrnt_servo];
+			while(next_time == 0 && crrnt_servo < NR_OF_SERVOS) {
+    				SERVO_PORT->BRR = servo_pin[crrnt_servo];
+				crrnt_servo ++;
+				if(crrnt_servo < NR_OF_SERVOS) 
+					next_time = servo_state_INT[crrnt_servo];
+			}	
+		}
+
+		if(crrnt_servo >= NR_OF_SERVOS){
+			state = START_PULSE;
+			next_time = SERVO_UPDATE_TIME_MS*TIME_1_MS;
+		}
 	}
 
 	TIM2->ARR = next_time;
