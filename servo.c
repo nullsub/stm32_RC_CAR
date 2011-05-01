@@ -48,6 +48,14 @@ void servo_set(unsigned int val, unsigned int servo_nr)
 }
 
 
+unsigned int servo_get(unsigned int servo_nr)
+{
+	if(servo_nr >= NR_OF_SERVOS) {
+		return 9999;
+	}
+
+	return servo_state[servo_nr];
+}
 
 static inline void swap(unsigned int *x, unsigned int *y)
 {

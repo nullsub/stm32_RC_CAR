@@ -14,6 +14,7 @@
 /* Includes */
 #include "common.h"
 #include "tprintf.h"
+#include "servo.h"
 
 #define TERM_CMD_LENGTH		50
 
