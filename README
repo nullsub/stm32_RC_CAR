@@ -1,3 +1,16 @@
 I want to control a RC-CAR with the stm32-discovery Board. 
 FreeRTOS is used as Real time OS. Following tasks are planed:
-	Servo Task. Does all the Servo timing.
+	Servo Task:
+		Does all the Servo timing.
+	Term Task:
+	  	This task provides a Terminal like interface over USART which lets you control/test and debug the servos and various sensors with the PC
+	Sensor Task/API:
+		Is responsible for logging of the sensors and provides a standart interface for all sensors.
+
+TODO/currnent state:
+	-Servos are working.
+	-Term task is written but not tested
+	-no sensors have been added yet
+	-motor controlling has not been tested
+	-radio transmission still needs some thoughts.... I think the the RFXX chips are quite nice...
+		
