@@ -1,3 +1,6 @@
+*.swn
+*.sw*.swn
+*.swo
 *.swp
 tags
 cscope.out
