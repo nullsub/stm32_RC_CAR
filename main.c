@@ -41,6 +41,7 @@
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
 #define TPRINTF_QUEUE_SIZE	16
+#define RECEIVE_QUEUE_SIZE 	16
 
 /* Function Prototypes */
 static void setup_rcc(void);
@@ -50,8 +51,8 @@ static void setup_usart(void);
 static void setup_nvic(void);
 static void main_noreturn(void) NORETURN;
 
-static void blink_task(void *pvParameters) NORETURN;
-static void debounce_task(void *pvParameters) NORETURN;
+static void term_task(void *pvParameters) NORETURN;
+static void button_task(void *pvParameters) NORETURN;
 
 static void setup(void);
 
@@ -65,6 +66,8 @@ enum button_state
 };
 
 static xQueueHandle tprintf_queue;
+static xQueueHandle uart_receive_queue;
+
 static xSemaphoreHandle debounce_sem;
 
 static enum button_state button_state;
@@ -98,7 +101,10 @@ inline void main_noreturn(void)
 
 
 
-	xTaskCreate(blink_task, (signed portCHAR *)"blink", configMINIMAL_STACK_SIZE , NULL, tskIDLE_PRIORITY + 1, &task);
+	xTaskCreate(term_task, (signed portCHAR *)"terminal", configMINIMAL_STACK_SIZE , NULL, tskIDLE_PRIORITY + 1, &task);
+	assert_param(task);
+
+	xTaskCreate(button_task, (signed portCHAR *)"button", configMINIMAL_STACK_SIZE , NULL, tskIDLE_PRIORITY + 2, &task);
 	assert_param(task);
 
 
@@ -117,7 +123,7 @@ static inline void setup()
 	setup_usart();
 	setup_nvic();
 
-	tprintf("stm32_template\r\n");
+	tprintf("FreeRTOS RC-CAR ---- chrisudeussen@gmail.com\r\n");
 }
 
 /**
@@ -203,7 +209,7 @@ void setup_usart(void)
 	usart_init.USART_StopBits = 1;
 	usart_init.USART_Parity = USART_Parity_No;
 	usart_init.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-	usart_init.USART_Mode = USART_Mode_Tx;
+	usart_init.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
 	USART_Init(USART1, &usart_init);
 
 	/* Enable the USART */
@@ -286,9 +292,9 @@ void setup_nvic(void)
 void usart1_isr(void)
 {
 	portBASE_TYPE task_woken;
+	unsigned char ch;
 
-	if (USART_GetITStatus(USART1, USART_IT_TXE) != RESET)
-	{
+	if (USART_GetITStatus(USART1, USART_IT_TXE) != RESET) {
 		unsigned char ch;
 
 		if (xQueueReceiveFromISR(tprintf_queue, &ch, &task_woken))
@@ -296,7 +302,12 @@ void usart1_isr(void)
 		else
 			USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
 	}
+	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {	
+		 ch = USART_ReceiveData(USART1);
 
+		xQueueSendFromISR(uart_receive_queue, &ch, &task_woken);
+                                
+	}
 	portEND_SWITCHING_ISR(task_woken);
 }
 
@@ -328,64 +339,49 @@ void blink_toggle_green()
 	led_green ^= 1;
 }
 
-void blink_task(void *pvParameters)
+void term_task(void *pvParameters)
 {
-	portTickType last_wake = xTaskGetTickCount();
-	xTaskHandle task;
-
-	/*
-	 * If using FreeRTOS, tprintf must not be called until after this queue
-	 * has been created
-	 */
 	tprintf_queue = xQueueCreate(TPRINTF_QUEUE_SIZE, sizeof(unsigned char));
 	assert_param(tprintf_queue);
+	
+	uart_receive_queue = xQueueCreate(RECEIVE_QUEUE_SIZE, sizeof(unsigned char));
+	assert_param(uart_receive_queue);
 
 	vSemaphoreCreateBinary(debounce_sem);
 	assert_param(debounce_sem);
 
 	setup();
 
-	/* Create the button task */
-	xTaskCreate(debounce_task, (signed portCHAR *)"debounce", configMINIMAL_STACK_SIZE , NULL, tskIDLE_PRIORITY + 2, &task);
-	assert_param(task);
-
-	for (;;)
-	{
-		vTaskDelayUntil(&last_wake, (1 * MS_PER_SEC) / portTICK_RATE_MS);
-		blink_toggle_green();
-		tprintf("tick=%d\r\n", last_wake);
+	char ch;
+	
+	for (;;) {
+		 xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY); // i hope it blocks!
 	}
 }
 
-void debounce_task(void *pvParameters)
+void button_task(void *pvParameters)
 {
 	portTickType delay = portMAX_DELAY;
 	uint8_t debounce = 0;
 
 	blink_toggle_blue();
 
-	for (;;)
-	{
-		if (xSemaphoreTake(debounce_sem, delay) == pdTRUE)
-		{
-			if (!debounce)
-			{
+	for (;;) {
+		if (xSemaphoreTake(debounce_sem, delay) == pdTRUE) {
+			if (!debounce) {
 				debounce = 1;
 				delay = DEBOUNCE_DELAY;
 			}
 		}
-		else
-		{
+		else {
 			volatile uint8_t button = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0);
 
-			if (button_state == BUTTON_STATE_UP && button)
-			{
+			if (button_state == BUTTON_STATE_UP && button) {
 				button_state = BUTTON_STATE_DOWN;
 				blink_toggle_blue();
 				tprintf("button press\r\n");
 			}
-			else if (button_state == BUTTON_STATE_DOWN && !button)
-			{
+			else if (button_state == BUTTON_STATE_DOWN && !button) {
 				button_state = BUTTON_STATE_UP;
 				tprintf("button release\r\n");
 			}
