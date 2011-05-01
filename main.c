@@ -37,6 +37,7 @@
 #include "common.h"
 #include "tprintf.h"
 #include "servo.h"
+#include "terminal.h"
 
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
@@ -51,13 +52,15 @@ static void setup_usart(void);
 static void setup_nvic(void);
 static void main_noreturn(void) NORETURN;
 
-static void term_task(void *pvParameters) NORETURN;
+
 static void button_task(void *pvParameters) NORETURN;
+static void term_task(void *pvParameters) NORETURN;
 
 static void setup(void);
 
 static void blink_toggle_blue(void);
 static void blink_toggle_green(void);
+
 
 enum button_state
 {
@@ -65,8 +68,9 @@ enum button_state
 	BUTTON_STATE_DOWN
 };
 
+
 static xQueueHandle tprintf_queue;
-static xQueueHandle uart_receive_queue;
+xQueueHandle uart_receive_queue;
 
 static xSemaphoreHandle debounce_sem;
 
@@ -100,11 +104,13 @@ inline void main_noreturn(void)
 	xTaskHandle task;
 
 
+	add_cmd("help", cmd_help);
+	add_cmd("status", cmd_status);
 
-	xTaskCreate(term_task, (signed portCHAR *)"terminal", configMINIMAL_STACK_SIZE , NULL, tskIDLE_PRIORITY + 1, &task);
+	xTaskCreate(term_task, (signed portCHAR *)"terminal", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);
 
-	xTaskCreate(button_task, (signed portCHAR *)"button", configMINIMAL_STACK_SIZE , NULL, tskIDLE_PRIORITY + 2, &task);
+	xTaskCreate(button_task, (signed portCHAR *)"button", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &task);
 	assert_param(task);
 
 
@@ -145,8 +151,6 @@ void setup_rcc(void)
 			RCC_APB2Periph_AFIO, ENABLE);
 
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE); 
-
-
 }
 
 /**
@@ -165,7 +169,7 @@ void setup_gpio(void)
 	GPIO_Init(GPIOA, &gpio_init);
 
 	//config LED pins and servo
-	gpio_init.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9 | SERVO_PIN_0 | SERVO_PIN_1; 
+	gpio_init.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9 | SERVO_PIN_0 | SERVO_PIN_1;  // do this in servo.c servo_init()
 	gpio_init.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_Init(GPIOC, &gpio_init);
 
@@ -303,10 +307,10 @@ void usart1_isr(void)
 			USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
 	}
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {	
-		 ch = USART_ReceiveData(USART1);
+		ch = USART_ReceiveData(USART1);
 
 		xQueueSendFromISR(uart_receive_queue, &ch, &task_woken);
-                                
+
 	}
 	portEND_SWITCHING_ISR(task_woken);
 }
@@ -339,11 +343,14 @@ void blink_toggle_green()
 	led_green ^= 1;
 }
 
-void term_task(void *pvParameters)
+void term_task(void *pvParameters) 	// Terminal Task
 {
+	char crrnt_cmd[TERM_CMD_LENGTH];
+	int crrnt_cmd_i = 0;	
+
 	tprintf_queue = xQueueCreate(TPRINTF_QUEUE_SIZE, sizeof(unsigned char));
 	assert_param(tprintf_queue);
-	
+
 	uart_receive_queue = xQueueCreate(RECEIVE_QUEUE_SIZE, sizeof(unsigned char));
 	assert_param(uart_receive_queue);
 
@@ -353,9 +360,19 @@ void term_task(void *pvParameters)
 	setup();
 
 	char ch;
-	
+
 	for (;;) {
-		 xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY); // i hope it blocks!
+		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY); // does it block?
+		if(ch == '\n' || ch == '\r'){
+			crrnt_cmd[crrnt_cmd_i] = 0x00;
+			parse_cmd(crrnt_cmd);
+			crrnt_cmd_i = 0;
+		} else {
+			crrnt_cmd[crrnt_cmd_i] = ch;
+			if(crrnt_cmd_i < TERM_CMD_LENGTH-1) {
+				crrnt_cmd_i ++;
+			}
+		}
 	}
 }
 
