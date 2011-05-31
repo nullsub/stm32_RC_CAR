@@ -22,7 +22,9 @@ void cmd_help(char * args)
 	tprintf("available commands are:\r\n"
 		"help - show this help\r\n"
 		"status - show statistics, free Mem, and running tasks\r\n"
-		"servo <servo_nr> <val> - set servo_nr to val\r\n");
+		"servo <servo_nr> <val> - set servo_nr to val\r\n"
+		"servo_cal - calibrate servos to middle position\r\n"
+		);
 	return;
 }
 
@@ -40,6 +42,11 @@ void cmd_status(char * args)
 	}
 
 	return;
+}
+
+void cmd_servo_cal(char *args) 
+{
+	servo_cal(); //calibrate servos
 }
 
 void cmd_servo(char *args)

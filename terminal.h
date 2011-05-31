@@ -24,5 +24,7 @@ int add_cmd(char * cmd_name, void (*func)(char *args));
 int parse_cmd(char * cmd);
 void cmd_help(char * args);
 void cmd_status(char *args);
+void cmd_servo_cal(char *args);
+void cmd_servo(char *args);
 
 #endif // _TERMINAL_H_

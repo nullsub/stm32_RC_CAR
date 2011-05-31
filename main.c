@@ -103,9 +103,11 @@ inline void main_noreturn(void)
 {
 	xTaskHandle task;
 
-
 	add_cmd("help", cmd_help);
 	add_cmd("status", cmd_status);
+	add_cmd("servo_cal", cmd_servo_cal);
+	add_cmd("servo", cmd_servo);
+
 
 	xTaskCreate(term_task, (signed portCHAR *)"terminal", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);

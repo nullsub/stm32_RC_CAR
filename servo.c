@@ -18,6 +18,8 @@
 
 const int servo_pin[NR_OF_SERVOS] = {SERVO_PIN_0, SERVO_PIN_1};
 
+
+static unsigned int servo_calibration[NR_OF_SERVOS]; //servo calibration
 static unsigned int servo_state[NR_OF_SERVOS]; 
 /*when servo_update is called, this is copied 
   into servo_state_INT, this done to ensure that interrupts are enabled as long as possible*/
@@ -28,6 +30,7 @@ void servo_init()
 {
 	for(int i = 0; i < NR_OF_SERVOS; i++)
 	{
+		servo_calibration[i] = 0;
 		servo_set(SERVO_MIDDLE, i);
 	}
 
@@ -44,7 +47,7 @@ void servo_set(unsigned int val, unsigned int servo_nr)
 		return;
 	}
 
-	servo_state[servo_nr] = val*TIME_100_US;    		// 10 is left, 20 is right , 15 is middle!
+	servo_state[servo_nr] = val*TIME_100_US + servo_calibration[servo_nr];    		// 10 is left, 20 is right , 15 is middle!
 }
 
 
@@ -54,7 +57,7 @@ unsigned int servo_get(unsigned int servo_nr)
 		return 9999;
 	}
 
-	return servo_state[servo_nr];
+	return servo_state[servo_nr] - servo_calibration[servo_nr];
 }
 
 static inline void swap(unsigned int *x, unsigned int *y)
@@ -132,4 +135,13 @@ void tim2_isr(void) 			//__attribute__ ((interrupt)) this interrupt breaks if it
 
 	TIM_ClearFlag(TIM2, TIM_FLAG_Update);         //Interrupt Flag von TIM2 Löschen
 }
+
+
+void servo_cal()
+{
+	for(int i = 0; i < NR_OF_SERVOS; i++) {
+		servo_calibration[i] = servo_state[i];
+	}	
+}
+
 
