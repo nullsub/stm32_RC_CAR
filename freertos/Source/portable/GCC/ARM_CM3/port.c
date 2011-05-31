@@ -156,7 +156,8 @@ void vPortStartFirstTask( void )
 					" ldr r0, [r0] 			\n"
 					" msr msp, r0			\n" /* Set the msp back to the start of the stack. */
 					" cpsie i				\n" /* Globally enable interrupts. */
-					" svc 0					\n" /* System call to start first task. */
+				//	" svc 0					\n" /* System call to start first task. */
+					".hword 0xDF00 \n "
 					" nop					\n"
 				);
 }
