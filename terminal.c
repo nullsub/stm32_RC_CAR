@@ -134,7 +134,10 @@ int add_cmd(char * cmd_name, void (*func)(char *args))
 	struct cmd *crrnt_cmd;
 
 	if(nr_of_cmds == 0){
-		first_cmd->next = (struct cmd*) pvPortMalloc(sizeof(struct cmd));
+		first_cmd = (struct cmd*) pvPortMalloc(sizeof(struct cmd));
+		if(first_cmd == NULL ) {
+			return -1;
+		}
 		crrnt_cmd = first_cmd;
 	}
 	else{
@@ -143,6 +146,10 @@ int add_cmd(char * cmd_name, void (*func)(char *args))
 			crrnt_cmd = crrnt_cmd->next;
 		}
 		crrnt_cmd->next = (struct cmd*) pvPortMalloc(sizeof(struct cmd));
+		if(crrnt_cmd->next == NULL ) {
+			return -1;
+		}
+
 		crrnt_cmd = crrnt_cmd->next;
 	}
 
