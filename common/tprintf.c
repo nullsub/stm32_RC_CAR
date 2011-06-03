@@ -167,7 +167,7 @@ static int print(char **out, const char *format, va_list args)
 				pc += prints (out, s ? s : "(null)", width, pad);
 				continue;
 			}
-			if (*format == 'd')
+			if (*format == 'd' || *format == 'i')
 			{
 				pc += printi (out, va_arg(args, int), 10, 1, width, pad, 'a');
 				continue;
