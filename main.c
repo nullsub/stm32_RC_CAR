@@ -41,8 +41,8 @@
 
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
-#define TPRINTF_QUEUE_SIZE	16
-#define RECEIVE_QUEUE_SIZE 	16
+#define TPRINTF_QUEUE_SIZE	64
+#define RECEIVE_QUEUE_SIZE 	42
 
 /* Function Prototypes */
 static void setup_rcc(void);
@@ -60,7 +60,6 @@ static void setup(void);
 
 static void blink_toggle_blue(void);
 static void blink_toggle_green(void);
-
 
 enum button_state
 {
@@ -86,7 +85,7 @@ static uint8_t led_green = 1;
 int outbyte(int ch)
 {
 	/* Enable USART TXE interrupt */
-	xQueueSendToBack(tprintf_queue, &ch, 0);
+	xQueueSendToBack(tprintf_queue, &ch, portMAX_DELAY); //blocks!
 	USART_ITConfig(USART1, USART_IT_TXE, ENABLE);
 	return ch;
 }
@@ -103,18 +102,11 @@ inline void main_noreturn(void)
 {
 	xTaskHandle task;
 
-	add_cmd("help", cmd_help);
-	add_cmd("status", cmd_status);
-	add_cmd("servo_cal", cmd_servo_cal);
-	add_cmd("servo", cmd_servo);
-
-
 	xTaskCreate(term_task, (signed portCHAR *)"terminal", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);
 
 	xTaskCreate(button_task, (signed portCHAR *)"button", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &task);
 	assert_param(task);
-
 
 	/* Start the FreeRTOS scheduler */
 	vTaskStartScheduler();
@@ -131,7 +123,7 @@ static inline void setup()
 	setup_usart();
 	setup_nvic();
 
-	tprintf("FreeRTOS RC-CAR ---- chrisudeussen@gmail.com\r\n");
+	tprintf("FreeRTOS RC-CAR ---- chrisudeussen@gmail.com\n");
 }
 
 /**
@@ -167,6 +159,12 @@ void setup_gpio(void)
 	/* Configure UART tx pin */
 	gpio_init.GPIO_Pin = GPIO_Pin_9;
 	gpio_init.GPIO_Mode = GPIO_Mode_AF_PP;
+	gpio_init.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOA, &gpio_init);
+
+	/* Configure UART rx pin */
+	gpio_init.GPIO_Pin = GPIO_Pin_10;
+	gpio_init.GPIO_Mode = GPIO_Mode_IN_FLOATING; //GPIO_Mode_AF_PP;
 	gpio_init.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &gpio_init);
 
@@ -259,10 +257,7 @@ void setup_nvic(void)
 	nvic_init.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&nvic_init);
 
-
-
 	servo_init();
-
 
 	//--------------- do this in sero_init....-------------------------------//
 	TIM_TimeBaseInitTypeDef timer_settings; 
@@ -287,7 +282,6 @@ void setup_nvic(void)
 
 	TIM_Cmd(TIM2, ENABLE); 
 	//-----------------------------------------------------------//
-
 }
 
 /**
@@ -301,8 +295,6 @@ void usart1_isr(void)
 	unsigned char ch;
 
 	if (USART_GetITStatus(USART1, USART_IT_TXE) != RESET) {
-		unsigned char ch;
-
 		if (xQueueReceiveFromISR(tprintf_queue, &ch, &task_woken))
 			USART_SendData(USART1, ch);
 		else
@@ -310,9 +302,9 @@ void usart1_isr(void)
 	}
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {	
 		ch = USART_ReceiveData(USART1);
-
 		xQueueSendFromISR(uart_receive_queue, &ch, &task_woken);
 
+		//USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);
 	}
 	portEND_SWITCHING_ISR(task_woken);
 }
@@ -361,19 +353,45 @@ void term_task(void *pvParameters) 	// Terminal Task
 
 	setup();
 
+	//tprintf("it iss%i ", atoi("0ss"));
+
+	add_cmd("help", cmd_help);
+	add_cmd("status", cmd_status);
+	add_cmd("servo_cal", cmd_servo_cal);
+	add_cmd("servo", cmd_servo);
+
 	char ch;
 
-	for (;;) {
-		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY); // does it block?
-		if(ch == '\n' || ch == '\r'){
-			crrnt_cmd[crrnt_cmd_i] = 0x00;
-			parse_cmd(crrnt_cmd);
-			crrnt_cmd_i = 0;
-		} else {
-			crrnt_cmd[crrnt_cmd_i] = ch;
-			if(crrnt_cmd_i < TERM_CMD_LENGTH-1) {
-				crrnt_cmd_i ++;
-			}
+	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE); //enable receiving.
+
+	tprintf("\n$");	
+
+	for (;;) { 
+		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);// it blocks 
+		switch(ch) {
+			case '\b':
+				if(crrnt_cmd_i > 0)
+					tprintf("%c %c",ch,ch);
+				crrnt_cmd_i --; 
+				break;
+			case '\n':
+			case '\r':
+				tprintf("\n");
+				if(crrnt_cmd_i > 0) {
+					crrnt_cmd[crrnt_cmd_i] = 0x00;
+					if(parse_cmd(crrnt_cmd)) {
+						tprintf("unknown cmd\n");
+					} 
+				} 
+				tprintf("$");	
+				crrnt_cmd_i = 0;
+				break;
+			default : 
+				tprintf("%c",ch);
+				crrnt_cmd[crrnt_cmd_i] = ch;
+				if(crrnt_cmd_i < TERM_CMD_LENGTH-1) {
+					crrnt_cmd_i ++;
+				}
 		}
 	}
 }
@@ -382,6 +400,8 @@ void button_task(void *pvParameters)
 {
 	portTickType delay = portMAX_DELAY;
 	uint8_t debounce = 0;
+
+	vTaskDelay(2000/portTICK_RATE_MS); // dont remooove, RACE CONDITION! :)
 
 	blink_toggle_blue();
 

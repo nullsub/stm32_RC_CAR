@@ -57,7 +57,7 @@ unsigned int servo_get(unsigned int servo_nr)
 		return 9999;
 	}
 
-	return servo_state[servo_nr] - servo_calibration[servo_nr];
+	return servo_state[servo_nr]/TIME_100_US;
 }
 
 static inline void swap(unsigned int *x, unsigned int *y)
@@ -81,7 +81,7 @@ void servo_update()
 			}
 		}
 	}
-	
+
 	int length = 0;
 	for(int i = 1; i < NR_OF_SERVOS; i++) {  //ordering now with offset
 		length += servo_state[i-1];
@@ -106,19 +106,19 @@ void tim2_isr(void) 			//__attribute__ ((interrupt)) this interrupt breaks if it
 	uint16_t next_time = SERVO_UPDATE_TIME_MS * TIME_1_MS;
 
 	if(state == START_PULSE) {		
-   		SERVO_PORT->BSRR = ALL_SERVO_PINS; // can take full mask of all bits!
+		SERVO_PORT->BSRR = ALL_SERVO_PINS; // can take full mask of all bits!
 		next_time = servo_state_INT[0];
 		crrnt_servo = 0;
 		state = STOP_PULSE;
 	}
 	else if( state ==  STOP_PULSE){
-    		SERVO_PORT->BRR = servo_pin[crrnt_servo];
-	
+		SERVO_PORT->BRR = servo_pin[crrnt_servo];
+
 		crrnt_servo ++;
 		if(crrnt_servo < NR_OF_SERVOS) { // "not the last"
 			next_time = servo_state_INT[crrnt_servo];
 			while(next_time == 0 && crrnt_servo < NR_OF_SERVOS) {
-    				SERVO_PORT->BRR = servo_pin[crrnt_servo];
+				SERVO_PORT->BRR = servo_pin[crrnt_servo];
 				crrnt_servo ++;
 				if(crrnt_servo < NR_OF_SERVOS) 
 					next_time = servo_state_INT[crrnt_servo];
@@ -136,12 +136,10 @@ void tim2_isr(void) 			//__attribute__ ((interrupt)) this interrupt breaks if it
 	TIM_ClearFlag(TIM2, TIM_FLAG_Update);         //Interrupt Flag von TIM2 Löschen
 }
 
-
 void servo_cal()
 {
 	for(int i = 0; i < NR_OF_SERVOS; i++) {
 		servo_calibration[i] = servo_state[i];
 	}	
 }
-
 
