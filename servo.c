@@ -16,85 +16,118 @@
 
 #define ALL_SERVO_PINS (SERVO_PIN_0 |  SERVO_PIN_1)
 
-const int servo_pin[NR_OF_SERVOS] = {SERVO_PIN_0, SERVO_PIN_1};
+struct servo{
+	int pin;
+	unsigned int calibration;
+	unsigned int time;
+	volatile unsigned int int_time;
+	/*when servo_update is called, this is copied 
+	  into servo_state_INT, this done to ensure that interrupts are enabled as long as possible*/
+};
 
+struct servo servos[NR_OF_SERVOS];
 
-static unsigned int servo_calibration[NR_OF_SERVOS]; //servo calibration
-static unsigned int servo_state[NR_OF_SERVOS]; 
-/*when servo_update is called, this is copied 
-  into servo_state_INT, this done to ensure that interrupts are enabled as long as possible*/
-
-static volatile unsigned int servo_state_INT[NR_OF_SERVOS]; // used in the interrupt
-
-void servo_init()
+static inline void swap_servos(struct servo *x, struct servo *y)
 {
-	for(int i = 0; i < NR_OF_SERVOS; i++)
-	{
-		servo_calibration[i] = 0;
-		servo_set(SERVO_MIDDLE, i);
-	}
-
-	servo_update();
-
+	struct servo temp;
+	memcpy(&temp,x,sizeof(struct servo));
+	memcpy(x,y,sizeof(struct servo));
+	memcpy(y,&temp,sizeof(struct servo));
 }
 
-void servo_set(unsigned int val, unsigned int servo_nr)
+void servo_init()
+{	
+	servos[0].pin = SERVO_PIN_0;
+	servos[1].pin = SERVO_PIN_1;
+
+	for(int i = 0; i < NR_OF_SERVOS; i++)
+	{
+		servos[i].calibration = 0;
+		servos[i].time = SERVO_MIDDLE*TIME_100_US;
+	}
+	servo_set(SERVO_MIDDLE, servos[0].pin);
+
+	//--------------- do this in sero_init....-------------------------------//
+	TIM_TimeBaseInitTypeDef timer_settings; 
+	/* TIM2CLK = 24 MHz, Prescaler = 160, TIM2 counter clock = 150000 Hz 
+	 * 24MHz / (160) = 150000Hz 
+	 * 75 * (1/150000Hz) = 0.0005S overflow interrupt */ 
+
+	/* Time base configuration */ 
+	timer_settings.TIM_Period = 650;  	
+	timer_settings.TIM_Prescaler = 160-1; 
+	timer_settings.TIM_ClockDivision = TIM_CKD_DIV1; 
+	timer_settings.TIM_CounterMode = TIM_CounterMode_Up; 
+	TIM_TimeBaseInit(TIM2, &timer_settings); 
+
+	/* Clear TIM2 update pending flag */ 
+	TIM_ClearFlag(TIM2, TIM_FLAG_Update); 
+
+	/* TIM IT enable */ 
+	TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE); 
+
+	TIM_ClearFlag(TIM2, TIM_FLAG_Update); 
+
+	TIM_Cmd(TIM2, ENABLE); 
+	//-----------------------------------------------------------//
+}
+
+void servo_set(unsigned int val, int pin)
 {
 	if(val < 10 || val > 20 ){
 		return;
 	}
-	if(servo_nr >= NR_OF_SERVOS) {
+	if(pin == 99) {
 		return;
 	}
 
-	servo_state[servo_nr] = val*TIME_100_US + servo_calibration[servo_nr];    		// 10 is left, 20 is right , 15 is middle!
-}
+	int index = 0;
 
-
-unsigned int servo_get(unsigned int servo_nr)
-{
-	if(servo_nr >= NR_OF_SERVOS) {
-		return 9999;
-	}
-
-	return servo_state[servo_nr]/TIME_100_US;
-}
-
-static inline void swap(unsigned int *x, unsigned int *y)
-{
-	unsigned int temp;
-	temp = *x;
-	*x = *y;
-	*y = temp;
-}
-
-
-void servo_update()
-{
-	// use bubble sort to update the order
-	if(NR_OF_SERVOS > 1) {	
-		for(int i = 0; i<(NR_OF_SERVOS-1);i++) {
-			for(int j = 0; j<(NR_OF_SERVOS-(i+1));j++) {
-				if(servo_state[j] > servo_state[j+1]) {
-					swap(&servo_state[j],&servo_state[j+1]);
-				}
-			}
+	for(int i = 0; i < NR_OF_SERVOS; i++) {
+		if(servos[i].pin == pin) {
+			index = i;
+			break;
 		}
 	}
 
-	int length = 0;
-	for(int i = 1; i < NR_OF_SERVOS; i++) {  //ordering now with offset
-		length += servo_state[i-1];
-		servo_state[i] -= length; 	
-	}	
-
-	// I really dont know how to do this better!?	
 	taskDISABLE_INTERRUPTS();
+
+	servos[index].time = val*TIME_100_US + servos[index].calibration;    		// 10 is left, 20 is right , 15 is middle!
+
 	for(int i = 0; i < NR_OF_SERVOS; i++) {
-		servo_state_INT[i] = servo_state[i];
+		servos[i].int_time = servos[i].time; //reset
 	}
-	taskENABLE_INTERRUPTS();	
+
+	if(NR_OF_SERVOS > 1) {	
+		 for(int i = 0; i<(NR_OF_SERVOS-1);i++) {
+			 for(int j = 0; j<(NR_OF_SERVOS-(i+1));j++) {
+				 if(servos[j].time > servos[j+1].time) {
+					 swap_servos(&servos[j], &servos[j+1]);
+				 }
+			 }
+		 }
+
+		 unsigned int length = 0;
+		 for(int i = 1; i < NR_OF_SERVOS; i++) {  //ordering now with offset
+			 length += servos[i-1].int_time;
+			 servos[i].int_time -= length; 	
+		 }
+	 }
+
+	 taskENABLE_INTERRUPTS();	
 }
+
+
+unsigned int servo_get(unsigned int index)
+{
+	if(index >= NR_OF_SERVOS) {
+		return 9999;
+	}
+	
+	return servos[index].time/TIME_100_US-servos[index].calibration;
+}
+
+
 
 #define START_PULSE 1
 #define STOP_PULSE 0
@@ -107,21 +140,21 @@ void tim2_isr(void) 			//__attribute__ ((interrupt)) this interrupt breaks if it
 
 	if(state == START_PULSE) {		
 		SERVO_PORT->BSRR = ALL_SERVO_PINS; // can take full mask of all bits!
-		next_time = servo_state_INT[0];
+		next_time = servos[0].int_time;
 		crrnt_servo = 0;
 		state = STOP_PULSE;
 	}
 	else if( state ==  STOP_PULSE){
-		SERVO_PORT->BRR = servo_pin[crrnt_servo];
+		SERVO_PORT->BRR = servos[crrnt_servo].pin;
 
 		crrnt_servo ++;
 		if(crrnt_servo < NR_OF_SERVOS) { // "not the last"
-			next_time = servo_state_INT[crrnt_servo];
+			next_time = servos[crrnt_servo].int_time;
 			while(next_time == 0 && crrnt_servo < NR_OF_SERVOS) {
-				SERVO_PORT->BRR = servo_pin[crrnt_servo];
+				SERVO_PORT->BRR = servos[crrnt_servo].pin;
 				crrnt_servo ++;
 				if(crrnt_servo < NR_OF_SERVOS) 
-					next_time = servo_state_INT[crrnt_servo];
+					next_time = servos[crrnt_servo].int_time;
 			}	
 		}
 
@@ -139,7 +172,7 @@ void tim2_isr(void) 			//__attribute__ ((interrupt)) this interrupt breaks if it
 void servo_cal()
 {
 	for(int i = 0; i < NR_OF_SERVOS; i++) {
-		servo_calibration[i] = servo_state[i];
+		servos[i].calibration = servos[i].time-SERVO_MIDDLE;
 	}	
 }
 

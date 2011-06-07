@@ -18,9 +18,8 @@
 
 
 void servo_init();
-void servo_set(unsigned int val, unsigned int servo_nr);
-unsigned int servo_get(unsigned int servo_nr);
-void servo_update();
+void servo_set(unsigned int val, int pin);
+unsigned int servo_get(unsigned int index);
 void servo_cal(); 
 
 #endif
