@@ -35,7 +35,7 @@ void cmd_help(char * args)
 void cmd_status(char * args) 
 {
 	int free_heap = xPortGetFreeHeapSize(); 
-	tprintf("Free Heap: %i of %i bytes used; %i%%full\n",
+	tprintf("Free Heap: %i of %i bytes used; %i%% full\n",
 			free_heap, configTOTAL_HEAP_SIZE, 
 			((100-free_heap)*100)/configTOTAL_HEAP_SIZE);
 	//peripherals
@@ -76,6 +76,17 @@ void cmd_servo(char *args)
 	int servo_val = atoi(arg2);
 
 	tprintf("set servo nr %i to %i \n",servo_nr, servo_val);
+	
+	switch(servo_nr){
+		case 0:
+			servo_nr = SERVO_PIN_0;
+			break;
+		case 1: 
+			servo_nr = SERVO_PIN_1;
+			break;
+		default:
+			servo_nr = 99;
+	}
 	servo_set(servo_val, servo_nr);
 
 	vPortFree(arg1);

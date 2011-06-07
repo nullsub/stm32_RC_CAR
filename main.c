@@ -256,32 +256,7 @@ void setup_nvic(void)
 	nvic_init.NVIC_IRQChannelPreemptionPriority = 0x2;
 	nvic_init.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&nvic_init);
-
-	servo_init();
-
-	//--------------- do this in sero_init....-------------------------------//
-	TIM_TimeBaseInitTypeDef timer_settings; 
-	/* TIM2CLK = 24 MHz, Prescaler = 160, TIM2 counter clock = 150000 Hz 
-	 * 24MHz / (160) = 150000Hz 
-	 * 75 * (1/150000Hz) = 0.0005S overflow interrupt */ 
-
-	/* Time base configuration */ 
-	timer_settings.TIM_Period = 650;  	
-	timer_settings.TIM_Prescaler = 160-1; 
-	timer_settings.TIM_ClockDivision = TIM_CKD_DIV1; 
-	timer_settings.TIM_CounterMode = TIM_CounterMode_Up; 
-	TIM_TimeBaseInit(TIM2, &timer_settings); 
-
-	/* Clear TIM2 update pending flag */ 
-	TIM_ClearFlag(TIM2, TIM_FLAG_Update); 
-
-	/* TIM IT enable */ 
-	TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE); 
-
-	TIM_ClearFlag(TIM2, TIM_FLAG_Update); 
-
-	TIM_Cmd(TIM2, ENABLE); 
-	//-----------------------------------------------------------//
+	
 }
 
 /**
@@ -364,15 +339,17 @@ void term_task(void *pvParameters) 	// Terminal Task
 
 	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE); //enable receiving.
 
-	tprintf("\n$");	
+	servo_init();
 
+	tprintf("\n$");	
 	for (;;) { 
 		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);// it blocks 
 		switch(ch) {
 			case '\b':
-				if(crrnt_cmd_i > 0)
+				if(crrnt_cmd_i > 0) {
 					tprintf("%c %c",ch,ch);
-				crrnt_cmd_i --; 
+					crrnt_cmd_i --; 
+				}
 				break;
 			case '\n':
 			case '\r':
