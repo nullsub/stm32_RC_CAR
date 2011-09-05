@@ -5,33 +5,76 @@
 import pygtk
 pygtk.require('2.0')
 import gtk
-import gtk.gdk
-
 import socket
+import threading
+import array
 
-class remote:
+UPDATE = '0'
+COMMAND = '1'
+
+actions = ["right","left", "forward","backward"]
+
+class communication(threading.Thread):
 	def connect(self, ip_address, port) :
 		self.sock = socket.socket()
 		try:
 			self.sock.connect((ip_address, port))
-    		except socket.error, msg:
-        		self.sock.close()
-        		self.sock = None
+		except socket.error, msg:
+	       		self.sock.close()
+       			self.sock = None
 			print "could not connect"
 			return False
 		print "connected"
-		self.sock.send("hello")
-		self.receive()
+		self.rec_thread = receive_thread()
+		self.rec_thread.deamon = True
+		self.rec_thread.start()
 		return True
 
 	def disconnect(self):
 		self.sock.close()
+		self.rec_thread.stop()
+		self.rec_thread.join()	
 		return True
-	
-	def receive():
-		data = self.sock.recv(8, MSG_WAITALL)
-		return
+		
+	def send_packet(self, data, mode):
+		package.length = len(data)
+		if length == 0 :
+			print "data has length 0"
+			return False
+		if mode != UPDATE or mode != COMMAND :
+			print "unknown mode"
+			return False
 
+		print "sending {length}bytes as descriptor... should be 4!" .format(length = len(htonl(length)))
+		self.sock.send(htonl(length + 1))
+		self.sock.send(mode)
+		print "mode is {length} in size" .format(length = len(mode))
+		
+		print "sending {length}bytes of data" .format(length = lenght)
+		self.sock.send(data)
+		return True
+	        
+	# the receive thread. Its Blocking!
+       	def run(self): 	
+		while 1:
+			if self._stop_receive.isSet():
+				return
+			try:
+				data = self.sock.recv(4, MSG_WAITALL)
+			except socket.error, msg:
+				package.length = ntohl(data)
+				print "couldnt receive"
+			print "receiving {length}bytes of data" .format(length = package.length)
+			package.data = self.sock.recv(package.length, MSG_WAITALL)
+			#handle_package
+		return
+	
+	def __init__(self):
+       	 	super(communication, self).__init__()
+       	 	self._stop_receive = threading.Event()
+		
+	def stop_reveive(self):
+		self._stop_receive.set()
 
 
 # Create an Arrow widget with the specified parameters
@@ -46,37 +89,20 @@ def create_arrow_button(arrow_type, shadow_type, label_name):
 	button.add(box)
 	return button
 
-class main:
-	remote = remote()	
+class main:	
+	def main(self):
+		gtk.main()
 
 	def delete_event(self, widget, event, data=None):
-		# If you return FALSE in the "delete_event" signal handler,
-		# GTK will emit the "destroy" signal. Returning TRUE means
-		# you don't want the window to be destroyed.
-		# This is useful for popping up 'are you sure you want to quit?'
-		# type dialogs.
-		print "delete event occurred"
-		# Change FALSE to TRUE and the main window will not be destroyed
-		# with a "delete_event".
 		return False
 	
 	def destroy(self, widget, data=None):
-		print "destroy signal occurred"
 		gtk.main_quit()
 
 	def __init__(self):
 		# create a new window
 		self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-		# When the window is given the "delete_event" signal (this is given
-		# by the window manager, usually by the "close" option, or on the
-		# titlebar), we ask it to call the delete_event () function
-		# as defined above. The data passed to the callback
-		# function is NULL and is ignored in the callback function.
 		self.window.connect("delete_event", self.delete_event)
-
-		# Here we connect the "destroy" event to a signal handler.  
-		# This event occurs when we call gtk_widget_destroy() on the window,
-		# or if we return FALSE in the "delete_event" callback.
 		self.window.connect("destroy", self.destroy)
 
 		# Sets the border width of the window.
@@ -86,10 +112,11 @@ class main:
 		self.options_box = gtk.HBox()
 		control_box = gtk.VBox()
 		stuff_box = gtk.HBox()	
-
-		self.options_box.lights = gtk.CheckButton("Lights")# Creates a new button with the label "Hello World".
-		self.options_box.logging = gtk.CheckButton("Logging")# Creates a new button with the label "Hello World".
-		self.options_box.debug = gtk.CheckButton("Debug")# Creates a new button with the label "Hello World".
+		
+		#option field:
+		self.options_box.lights = gtk.CheckButton("Lights")
+		self.options_box.logging = gtk.CheckButton("Logging")
+		self.options_box.debug = gtk.CheckButton("Debug")
 
 		self.options_box.remote_ip = gtk.HBox()
 		self.options_box.remote_ip.entry = gtk.Entry(15)
@@ -124,8 +151,8 @@ class main:
 		control_box.down_box.pack_start(control_box.down, True, False, 13)
 
 		#connect controlling buttons
-		control_box.up.connect("clicked", self.controlling_handler, "forwards")
-		control_box.down.connect("clicked", self.controlling_handler, "backwards")
+		control_box.up.connect("clicked", self.controlling_handler, "forward")
+		control_box.down.connect("clicked", self.controlling_handler, "backward")
 		control_box.left.connect("clicked", self.controlling_handler, "left")
 		control_box.right.connect("clicked", self.controlling_handler, "right")
 					
@@ -167,10 +194,13 @@ class main:
 		# The final step is to display all widget.
 		self.window.show_all()	
 
-	def main(self):
-		# All PyGTK applications must have a gtk.main(). Control ends here
-		# and waits for an event to occur (like a key press or mouse event).
-		gtk.main()
+		#do some initializations
+		self.car = communication()
+	
+		self.action = array.array("i")     
+		for i in range(0, len(actions)):
+			self.action.insert(i, 0)	
+
 	def options_handler(self, widget, data=None):
 		if data == "debug" or data == "logging" or data == "lights":
 			if (("OFF", "ON") [widget.get_active()]) == "ON":
@@ -180,31 +210,37 @@ class main:
 		
 		if data == "connect_button":
 			if widget.get_label() == "Connected":
-				if self.remote.disconnect() == True :
+				if self.car.disconnect() == True :
 					widget.set_label("Disconnected")
 			else:
-				if self.remote.connect(self.options_box.remote_ip.entry.get_text(), 2005) == True :
+				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 2005) == True :
 					widget.set_label("Connected")
 
 	def controlling_handler(self, widget, data = None):	
-		if data == "forwards" or data == "backwards":
-			print ("forwards or backwards")
-		if data == "right" or data == "left":
-			print("right or left")
+		self.do_action(data,1)
 
 	def click_event(self, widget, event):
 		key = gtk.gdk.keyval_name(event.keyval)
         	if key == "w" or key == "Up":
-            		print "going forward"
+			self.do_action("forward",1)
 		if key == "a" or key == "Right":
-            		print "going right"
+			self.do_action("right",1)
 		if key == "s" or key == "Down":
-            		print "going backward"
+			self.do_action("backward",1)
 		if key == "d" or key == "Left":
-            		print "going left"
+			self.do_action("left",1)
 
+	def do_action(self, the_action, value):
+		self.action[actions.index(the_action)] = value
+		print actions
+		print self.action 
+		return
+
+	def update(self):
+		#self.car.send_package()		
+		return
+	
 # If the program is run directly or passed as an argument to the python
-# interpreter then create a HelloWorld instance and show it
 if __name__ == "__main__":
 	hello = main()
 	hello.main()
