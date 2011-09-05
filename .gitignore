@@ -4,4 +4,4 @@
 *.swp
 tags
 cscope.out
-build/*
+*.o
