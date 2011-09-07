@@ -26,8 +26,6 @@
 # Set developer code and compile options
 # Set to YES for debugging
 DEBUG ?= YES
-# Set to YES when using Code Sourcery toolchain
-CODE_SOURCERY= neeee
 
 # Toolchain prefix (i.e arm-elf- -> arm-elf-gcc.exe)
 TCHAIN_PREFIX = arm-none-eabi-

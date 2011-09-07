@@ -24,14 +24,15 @@
         replace outbyte(c) by your own function call.
 
 */
+
+unsigned char outbyte(unsigned char ch);
+
 #define putchar(c) outbyte(c)
 
 #include <stdarg.h>
 
 static void printchar(char **str, int c)
 {
-	extern int putchar(int c);
-
 	if (str)
 	{
 		**str = c;
@@ -236,3 +237,11 @@ int tsnprintf(char *out, unsigned int count, const char *format, ...)
 	return print(&out, format, args);
 }
 
+int data_out(char * data, int cnt)
+{
+	for(int i = 0; i < cnt; i++)
+	{
+		putchar((char)*(data+i));
+	}	
+	return cnt;
+}

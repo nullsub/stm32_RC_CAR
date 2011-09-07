@@ -15,7 +15,8 @@ char * skip_word(char *string);
 
 //char *args is <cmd_name> <arg1> <arg2> ...
 
-int atoi(char *c) {
+int atoi(char *c) 
+{
 	int res = 0;
 	while (*c >= '0' && *c <= '9')
 		res = res * 10 + *c++ - '0';

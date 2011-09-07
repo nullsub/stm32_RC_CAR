@@ -23,6 +23,10 @@
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
+/* define when the serial connection is a text terminal. 
+ * comment when remote-controlling apps connect using a custom protocol */
+//#define USE_TERMINAL 
+
 /* STM32 includes */
 #include <stm32f10x.h>
 #include <stm32f10x_conf.h>
@@ -37,7 +41,10 @@
 #include "common.h"
 #include "tprintf.h"
 #include "servo.h"
-#include "terminal.h"
+
+#ifdef USE_TERMINAL
+	#include "terminal.h"
+#endif
 
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
@@ -54,7 +61,13 @@ static void main_noreturn(void) NORETURN;
 
 
 static void button_task(void *pvParameters) NORETURN;
+static void startup_task(void *pvParameters) NORETURN;
+
+#ifdef USE_TERMINAL
 static void term_task(void *pvParameters) NORETURN;
+#else
+static void remote_command_task(void *pvParameters) NORETURN;
+#endif
 
 static void setup(void);
 
@@ -82,7 +95,7 @@ static uint8_t led_green = 1;
  * @param  ch The character to print
  * @retval The character printed
  */
-int outbyte(int ch)
+unsigned char outbyte(unsigned char ch)
 {
 	/* Enable USART TXE interrupt */
 	xQueueSendToBack(tprintf_queue, &ch, portMAX_DELAY); //blocks!
@@ -102,10 +115,18 @@ inline void main_noreturn(void)
 {
 	xTaskHandle task;
 
+	xTaskCreate(startup_task, (signed portCHAR *)"startup", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 5, &task);
+	assert_param(task);
+	
+#ifdef USE_TERMIAL
 	xTaskCreate(term_task, (signed portCHAR *)"terminal", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);
+#else
+	xTaskCreate(remote_command_task, (signed portCHAR *)"command", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1, &task);
+	assert_param(task);
+#endif	
 
-	xTaskCreate(button_task, (signed portCHAR *)"button", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &task);
+	xTaskCreate(button_task, (signed portCHAR *)"button", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);
 
 	/* Start the FreeRTOS scheduler */
@@ -122,8 +143,6 @@ static inline void setup()
 	setup_exti();
 	setup_usart();
 	setup_nvic();
-
-	tprintf("FreeRTOS RC-CAR ---- chrisudeussen@gmail.com\n");
 }
 
 /**
@@ -256,7 +275,6 @@ void setup_nvic(void)
 	nvic_init.NVIC_IRQChannelPreemptionPriority = 0x2;
 	nvic_init.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&nvic_init);
-	
 }
 
 /**
@@ -300,23 +318,8 @@ void exti0_isr(void)
 	portEND_SWITCHING_ISR(task_woken);
 }
 
-void blink_toggle_blue()
+void startup_task(void *pvParameters)
 {
-	GPIO_WriteBit(GPIOC, GPIO_Pin_8, led_blue);
-	led_blue ^= 1;
-}
-
-void blink_toggle_green()
-{
-	GPIO_WriteBit(GPIOC, GPIO_Pin_9, led_green);
-	led_green ^= 1;
-}
-
-void term_task(void *pvParameters) 	// Terminal Task
-{
-	char crrnt_cmd[TERM_CMD_LENGTH];
-	int crrnt_cmd_i = 0;	
-
 	tprintf_queue = xQueueCreate(TPRINTF_QUEUE_SIZE, sizeof(unsigned char));
 	assert_param(tprintf_queue);
 
@@ -328,7 +331,21 @@ void term_task(void *pvParameters) 	// Terminal Task
 
 	setup();
 
-	//tprintf("it iss%i ", atoi("0ss"));
+	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE); //enable receiving.
+
+	servo_init();
+
+	vTaskDelete(NULL);
+	for(;;);
+}
+
+#ifdef USE_TERMINAL
+void term_task(void *pvParameters) 
+{
+	char crrnt_cmd[TERM_CMD_LENGTH];
+	int crrnt_cmd_i = 0;	
+	
+	tprintf("FreeRTOS RC-CAR ---- chrisudeussen@gmail.com\n");
 
 	add_cmd("help", cmd_help);
 	add_cmd("status", cmd_status);
@@ -336,10 +353,6 @@ void term_task(void *pvParameters) 	// Terminal Task
 	add_cmd("servo", cmd_servo);
 
 	char ch;
-
-	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE); //enable receiving.
-
-	servo_init();
 
 	tprintf("\n$");	
 	for (;;) { 
@@ -372,6 +385,12 @@ void term_task(void *pvParameters) 	// Terminal Task
 		}
 	}
 }
+#else
+void remote_command_task(void *pvParameters)
+{
+
+}
+#endif
 
 void button_task(void *pvParameters)
 {
@@ -406,5 +425,17 @@ void button_task(void *pvParameters)
 			delay = portMAX_DELAY;
 		}
 	}
+}
+
+void blink_toggle_blue()
+{
+	GPIO_WriteBit(GPIOC, GPIO_Pin_8, led_blue);
+	led_blue ^= 1;
+}
+
+void blink_toggle_green()
+{
+	GPIO_WriteBit(GPIOC, GPIO_Pin_9, led_green);
+	led_green ^= 1;
 }
 

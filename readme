@@ -3,3 +3,8 @@ The goal of this rc-car project is to control an rc-car over ethernet by a pc/sm
 ./car   this folder contains the code for the stm32 microcontroller of the car. It is written C with a little bit of assembler 
 ./docs  this folder contains documentation
 ./remote_control this folder contains the remote controlling apps. the Main app for linux is written in Python using PyGtk for the gui 
+
+
+for compiling the stm32 arm code I used the sat[1] toolchain on a fedora machine.
+
+[1]https://github.com/esden/summon-arm-toolchain

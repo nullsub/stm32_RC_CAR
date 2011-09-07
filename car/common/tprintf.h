@@ -27,6 +27,9 @@
 #ifndef TPRINTF_H
 #define TPRINTF_H
 
+/* writes bytes to the serial port*/
+int data_out(void* data_to_write, int nr_of_bytes);
+
 /**
  * @brief  Tiny embedded version of printf
  * @param  format The format string
