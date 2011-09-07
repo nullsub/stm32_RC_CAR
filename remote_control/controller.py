@@ -12,7 +12,7 @@ import array
 UPDATE = '0'
 COMMAND = '1'
 
-actions = ["right","left", "forward","backward"]
+states = ["right","left", "forward","backward","lights",]
 
 class communication(threading.Thread):
 	def connect(self, ip_address, port) :
@@ -151,12 +151,18 @@ class main:
 		control_box.down_box.pack_start(control_box.down, True, False, 13)
 
 		#connect controlling buttons
-		control_box.up.connect("clicked", self.controlling_handler, "forward")
-		control_box.down.connect("clicked", self.controlling_handler, "backward")
-		control_box.left.connect("clicked", self.controlling_handler, "left")
-		control_box.right.connect("clicked", self.controlling_handler, "right")
+		control_box.up.connect("released", self.released_handler, "forward")
+		control_box.down.connect("released", self.released_handler, "backward")
+		control_box.left.connect("released", self.released_handler, "left")
+		control_box.right.connect("released", self.released_handler, "right")	
+
+		control_box.up.connect("pressed", self.pressed_handler, "forward")
+		control_box.down.connect("pressed", self.pressed_handler, "backward")
+		control_box.left.connect("pressed", self.pressed_handler, "left")
+		control_box.right.connect("pressed", self.pressed_handler, "right")
 					
 		self.window.connect("key-press-event",self.click_event)
+		self.window.connect("key-release-event",self.click_event)
 
 		#Singals and Infos about the car:
 		stuff_box.battery_status = gtk.ProgressBar()
@@ -197,17 +203,15 @@ class main:
 		#do some initializations
 		self.car = communication()
 	
-		self.action = array.array("i")     
-		for i in range(0, len(actions)):
-			self.action.insert(i, 0)	
+		self.current_state = array.array("i")     
+		for i in range(0, len(states)):
+			self.current_state.insert(i, 0)	
 
 	def options_handler(self, widget, data=None):
-		if data == "debug" or data == "logging" or data == "lights":
-			if (("OFF", "ON") [widget.get_active()]) == "ON":
-				print "turning %s on" %data 
-			else :
-				print "turning %s off" %data
-		
+		if data == "debug" or data == "logging" :
+			print "Debug OR logging"
+		if data == "lights":
+			self.do_action(data,widget.get_active())
 		if data == "connect_button":
 			if widget.get_label() == "Connected":
 				if self.car.disconnect() == True :
@@ -216,24 +220,75 @@ class main:
 				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 2005) == True :
 					widget.set_label("Connected")
 
-	def controlling_handler(self, widget, data = None):	
-		self.do_action(data,1)
+	up_clicked = 0
+	down_clicked = 0
+	right_clicked = 0
+	left_clicked = 0
+
+	def released_handler(self, widget, data):	
+		if data == "forward":
+			up_clicked = 0
+			self.do_action(data,0)
+		if data == "backward":
+			down_clicked = 0
+			self.do_action(data,0)
+		if data == "left":
+			left_clicked = 0
+			self.do_action(data,0)
+		if data == "right":
+			right_clicked = 0
+			self.do_action(data,0)
+
+	def pressed_handler(self, widget, data):	
+		if data == "forward":
+			up_clicked = 1
+			self.do_action(data,1)
+		if data == "backward":
+			down_clicked = 1
+			self.do_action(data,1)
+		if data == "left":
+			left_clicked = 1
+			self.do_action(data,1)
+		if data == "right":
+			right_clicked = 1
+			self.do_action(data,1)
 
 	def click_event(self, widget, event):
 		key = gtk.gdk.keyval_name(event.keyval)
-        	if key == "w" or key == "Up":
-			self.do_action("forward",1)
-		if key == "a" or key == "Right":
-			self.do_action("right",1)
-		if key == "s" or key == "Down":
-			self.do_action("backward",1)
-		if key == "d" or key == "Left":
-			self.do_action("left",1)
+		if event.type == gtk.gdk.KEY_PRESS:
+        		if (key == "w" or key == "Up") and self.up_clicked == 0:
+				self.do_action("forward",1)
+				self.up_clicked = 1
+			if (key == "a" or key == "Right") and self.right_clicked == 0:
+				self.do_action("right",1)
+				self.right_clicked = 1
+			if (key == "s" or key == "Down") and self.down_clicked == 0:
+				self.do_action("backward",1)
+				self.down_clicked = 1
+			if (key == "d" or key == "Left") and self.left_clicked == 0:
+				self.do_action("left",1)
+				self.left_clicked = 1
 
-	def do_action(self, the_action, value):
-		self.action[actions.index(the_action)] = value
-		print actions
-		print self.action 
+		if event.type == gtk.gdk.KEY_RELEASE:	
+        		if (key == "w" or key == "Up") and self.up_clicked == 1:
+				self.do_action("forward",0)
+				self.up_clicked = 0
+			if (key == "a" or key == "Right") and self.right_clicked == 1:
+				self.do_action("right",0)
+				self.right_clicked = 0
+			if (key == "s" or key == "Down") and self.down_clicked == 1:
+				self.do_action("backward",0)
+				self.down_clicked = 0
+			if (key == "d" or key == "Left") and self.left_clicked == 1:
+				self.do_action("left",0)
+				self.left_clicked = 0
+
+	def do_action(self, state, value):
+		if value == 0:
+			print "released"
+		else:
+			print "pressed"
+		self.current_state[states.index(state)] = value
 		return
 
 	def update(self):
