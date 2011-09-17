@@ -9,8 +9,10 @@ import socket
 import threading
 import array
 
-UPDATE = '0'
-COMMAND = '1'
+
+UPDATE = 0L
+COMMAND = 1L
+DEBUG = 2L
 
 states = ["right","left", "forward","backward","lights",]
 
@@ -41,15 +43,12 @@ class communication(threading.Thread):
 		if length == 0 :
 			print "data has length 0"
 			return False
-		if mode != UPDATE or mode != COMMAND :
+		if mode != UPDATE or mode != COMMAND or mode != DEBUG :
 			print "unknown mode"
 			return False
-
-		print "sending {length}bytes as descriptor... should be 4!" .format(length = len(htonl(length)))
-		self.sock.send(htonl(length + 1))
+		print "sending {length}bytes ... should be 4!" .format(length = len(htonl(length)))
+		self.sock.send(htonl(length))
 		self.sock.send(mode)
-		print "mode is {length} in size" .format(length = len(mode))
-		
 		print "sending {length}bytes of data" .format(length = lenght)
 		self.sock.send(data)
 		return True
@@ -59,16 +58,43 @@ class communication(threading.Thread):
 		while 1:
 			if self._stop_receive.isSet():
 				return
-			try:
+			try: # first receive the packet length 
 				data = self.sock.recv(4, MSG_WAITALL)
+			except	socket.error, msg:
+				print "couldnt receive"
+				break
+			package.length = ntohl(data)
+			print "data length is {length}bytes" .format(length = package.length)
+			try: #now recieve the package type	
+				data = self.sock.recv(4, MSG_WAITALL)
+			except	socket.error, msg:
+				print "couldnt receive packet type"
+				break
+			package.mode = ntohl(data)
+			try: #now receive the data
+				package.data = self.sock.recv(package.length, MSG_WAITALL)
 			except socket.error, msg:
 				package.length = ntohl(data)
 				print "couldnt receive"
-			print "receiving {length}bytes of data" .format(length = package.length)
-			package.data = self.sock.recv(package.length, MSG_WAITALL)
+				break
+			print "received the following message: {data}" .format(data = package.data) 
 			#handle_package
+			
+			handle_package(mode,package.data)	
 		return
 	
+	def handle_package(self, mode, data):	
+		if mode == UPDATE:
+			#self.update()
+		else if mode == COMMAND:
+			if data == 
+		else if mode == DEBUG:
+		else :
+			print "unknown mode"
+			return False
+			
+		return true
+
 	def __init__(self):
        	 	super(communication, self).__init__()
        	 	self._stop_receive = threading.Event()
@@ -77,8 +103,7 @@ class communication(threading.Thread):
 		self._stop_receive.set()
 
 
-# Create an Arrow widget with the specified parameters
-# and pack it into a button
+# Create a button with a arrow image and a name
 def create_arrow_button(arrow_type, shadow_type, label_name):
 	button = gtk.Button()
 	arrow = gtk.Arrow(arrow_type, shadow_type)
