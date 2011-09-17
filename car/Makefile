@@ -27,6 +27,10 @@
 # Set to YES for debugging
 DEBUG ?= YES
 
+# Set to YES when the serial connection is a text terminal. 
+# Set to NO  when remote-controlling apps will connect */
+USE_TERMINAL ?= NO
+
 # Toolchain prefix (i.e arm-elf- -> arm-elf-gcc.exe)
 TCHAIN_PREFIX = arm-none-eabi-
 
@@ -238,6 +242,10 @@ CSTANDARD = -std=gnu99
 
 ifeq ($(DEBUG),YES)
 CFLAGS = -g$(DEBUGF)
+endif
+
+ifeq ($(USE_TERMINAL),YES)
+CFLAGS += -DUSE_TERMINAL
 endif
 
 CFLAGS += -O$(OPT)

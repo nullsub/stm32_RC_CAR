@@ -1,3 +1,4 @@
+#ifdef USE_TERMINAL
 
 #include "terminal.h"
 #include <string.h>
@@ -190,6 +191,4 @@ int add_cmd(char * cmd_name, void (*func)(char *args))
 	return 0;
 }
 
-
-
-
+#endif //USE_TERMINAL

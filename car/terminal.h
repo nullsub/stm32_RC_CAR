@@ -1,3 +1,5 @@
+#ifdef USE_TERMINAL
+
 #ifndef _TERMINAL_H_
 #define _TERMINAL_H_
 
@@ -28,3 +30,5 @@ void cmd_servo_cal(char *args);
 void cmd_servo(char *args);
 
 #endif // _TERMINAL_H_
+
+#endif // USE_TERMINAL

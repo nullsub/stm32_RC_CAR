@@ -23,11 +23,7 @@
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-/* define when the serial connection is a text terminal. 
- * comment when remote-controlling apps connect using a custom protocol */
-//#define USE_TERMINAL 
-
-/* STM32 includes */
+//* STM32 includes */
 #include <stm32f10x.h>
 #include <stm32f10x_conf.h>
 
@@ -118,7 +114,7 @@ inline void main_noreturn(void)
 	xTaskCreate(startup_task, (signed portCHAR *)"startup", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 5, &task);
 	assert_param(task);
 	
-#ifdef USE_TERMIAL
+#ifdef USE_TERMINAL
 	xTaskCreate(term_task, (signed portCHAR *)"terminal", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);
 #else
@@ -390,7 +386,7 @@ void remote_command_task(void *pvParameters)
 {
 
 }
-#endif
+#endif // USE_TERMINAL
 
 void button_task(void *pvParameters)
 {
