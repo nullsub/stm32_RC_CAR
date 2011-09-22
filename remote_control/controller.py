@@ -1,105 +1,115 @@
 #!/usr/bin/env python
-
 #Remote Cotnroller for the STM rc-car 
 
 import pygtk
 pygtk.require('2.0')
 import gtk
+import glib
 import socket
 import threading
 import array
 
+sock = socket.socket()
 
-UPDATE = 0L
-COMMAND = 1L
-DEBUG = 2L
+UPDATE = 0
+COMMAND = 1
+DEBUG = 2
 
 states = ["right","left", "forward","backward","lights",]
 
-class communication(threading.Thread):
+class communication():
 	def connect(self, ip_address, port) :
-		self.sock = socket.socket()
 		try:
-			self.sock.connect((ip_address, port))
+			sock.connect((ip_address, port))
 		except socket.error, msg:
-	       		self.sock.close()
-       			self.sock = None
+	       		sock.close()
 			print "could not connect"
 			return False
-		print "connected"
 		self.rec_thread = receive_thread()
 		self.rec_thread.deamon = True
 		self.rec_thread.start()
+		self.connected = True
 		return True
 
 	def disconnect(self):
-		self.sock.close()
+		connected = False
 		self.rec_thread.stop()
-		self.rec_thread.join()	
+		sock.shutdown(2)
+		sock.close()	
+		self.rec_thread.join()
 		return True
-		
+
 	def send_packet(self, data, mode):
-		package.length = len(data)
-		if length == 0 :
-			print "data has length 0"
+		if connected == False:
 			return False
-		if mode != UPDATE or mode != COMMAND or mode != DEBUG :
-			print "unknown mode"
+	
+		self.rec_thread.stop()
+		length = len(data)
+		if length <= 0 or length > 255:
+			print "data has length" ,length
 			return False
-		print "sending {length}bytes ... should be 4!" .format(length = len(htonl(length)))
-		self.sock.send(htonl(length))
-		self.sock.send(mode)
-		print "sending {length}bytes of data" .format(length = lenght)
-		self.sock.send(data)
+		if mode != UPDATE and mode != COMMAND and mode != DEBUG :
+			print "unknown mode ", mode
+			return False
+		sock.send(chr(length))
+		sock.send(chr(mode))
+		sock.send(data)
 		return True
-	        
-	# the receive thread. Its Blocking!
+
+class receive_thread(threading.Thread):
        	def run(self): 	
 		while 1:
 			if self._stop_receive.isSet():
+				print "ending receive" 
 				return
-			try: # first receive the packet length 
-				data = self.sock.recv(4, MSG_WAITALL)
-			except	socket.error, msg:
+			try: 
+				data = sock.recv(1) 	#length
+			except	:
 				print "couldnt receive"
-				break
-			package.length = ntohl(data)
-			print "data length is {length}bytes" .format(length = package.length)
-			try: #now recieve the package type	
-				data = self.sock.recv(4, MSG_WAITALL)
-			except	socket.error, msg:
+				continue
+			if len(data) == 0:
+				print "failed to receive"
+				continue	
+			length = ord(data)
+			try:	
+				data = sock.recv(1)	#mode
+			except	:
 				print "couldnt receive packet type"
-				break
-			package.mode = ntohl(data)
-			try: #now receive the data
-				package.data = self.sock.recv(package.length, MSG_WAITALL)
-			except socket.error, msg:
-				package.length = ntohl(data)
+				continue
+			if len(data) == 0:
+				print "failed to receive"
+				continue	
+			mode = ord(data)
+			try: 
+				data = sock.recv(length) #data
+			except :
 				print "couldnt receive"
-				break
-			print "received the following message: {data}" .format(data = package.data) 
-			#handle_package
-			
-			handle_package(mode,package.data)	
+				continue
+			if len(data) == 0:
+				print "failed to receive"
+				continue	
+			self.handle_package(mode,data)
 		return
 	
 	def handle_package(self, mode, data):	
 		if mode == UPDATE:
-			#self.update()
-		else if mode == COMMAND:
-			if data == 
-		else if mode == DEBUG:
+			print "Update"
+			glib.idle_add(stuff_box.temp.set_label,"17 degrees C")	
+		elif mode == COMMAND:
+			if data == "sensor":
+				print "sensor"
+		elif mode == DEBUG:
+			print "its debug:"
+			print data
 		else :
 			print "unknown mode"
 			return False
-			
-		return true
-
+		return True
 	def __init__(self):
-       	 	super(communication, self).__init__()
+       	 	super(receive_thread, self).__init__()
        	 	self._stop_receive = threading.Event()
 		
-	def stop_reveive(self):
+	def stop(self):
 		self._stop_receive.set()
 
 
@@ -116,6 +126,7 @@ def create_arrow_button(arrow_type, shadow_type, label_name):
 
 class main:	
 	def main(self):
+		gtk.gdk.threads_init()	
 		gtk.main()
 
 	def delete_event(self, widget, event, data=None):
@@ -125,6 +136,7 @@ class main:
 		gtk.main_quit()
 
 	def __init__(self):
+		global stuff_box
 		# create a new window
 		self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
 		self.window.connect("delete_event", self.delete_event)
@@ -145,7 +157,7 @@ class main:
 
 		self.options_box.remote_ip = gtk.HBox()
 		self.options_box.remote_ip.entry = gtk.Entry(15)
-		self.options_box.remote_ip.entry.set_text("192.168.2.3")
+		self.options_box.remote_ip.entry.set_text("127.0.0.1");
 		self.options_box.remote_ip.connect_button = gtk.Button("Connect    ")
 		self.options_box.remote_ip.pack_start(self.options_box.remote_ip.entry, False, False, 13)
 		self.options_box.remote_ip.pack_start(self.options_box.remote_ip.connect_button, False, False, 3)
@@ -197,7 +209,7 @@ class main:
 		stuff_box.signal_strength.set_text("Signal strength")
 		stuff_box.signal_strength.pulse()
 		stuff_box.speed = gtk.Label("0.0 km/h")
-		stuff_box.temp = gtk.Label("25 Decrees C.");
+		stuff_box.temp = gtk.Label("25 Degrees C.");
 
 		#add the widgets to the boxes
 		self.options_box.pack_start(self.options_box.lights, False, False, 3)
@@ -238,12 +250,12 @@ class main:
 		if data == "lights":
 			self.do_action(data,widget.get_active())
 		if data == "connect_button":
-			if widget.get_label() == "Connected":
-				if self.car.disconnect() == True :
-					widget.set_label("Disconnected")
+			if widget.get_label() == "Disconnect":
+				if self.car.disconnect() == True:
+					widget.set_label("Connect")
 			else:
-				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 2005) == True :
-					widget.set_label("Connected")
+				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 12345) == True :
+					widget.set_label("Disconnect")
 
 	up_clicked = 0
 	down_clicked = 0
