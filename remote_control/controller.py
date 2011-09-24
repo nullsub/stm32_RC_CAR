@@ -7,24 +7,65 @@ import gtk
 import glib
 import socket
 import threading
+import thread
 import array
 
-sock = socket.socket()
+global sock
 
 UPDATE = 0
-COMMAND = 1
+REQUEST = 1
 DEBUG = 2
 
-states = ["right","left", "forward","backward","lights",]
+my_states = ["right","left", "forward","backward","lights", "debug"]
+my_state_vals = [0 ,  0   ,     0    ,    0     ,   0    ,     0  ,]
+
+car_stats = ["temp", "battery", "signal", "speed",]
+car_stats_vals = [0,      0    ,     0   ,   0   ,]
+car_stats_lock = thread.allocate_lock()
+
+def set_car_stats(name, val):
+	global car_stats_vals
+	global car_stats
+	global car_stats_lock
+
+	car_stats_lock.acquire()
+	try:
+		car_stats_vals[car_stats.index(name)] = val
+	except ValueError:
+		car_stats_lock.release()
+		return False
+	car_stats_lock.release()
+	return True	
+
+def get_car_stats(name):
+	global car_stats_vals
+	global car_stats
+	global car_stats_lock
+
+	car_stats_lock.acquire()
+	try:
+		ret = car_stats_vals[car_stats.index(name)]
+	except ValueError:
+		car_stats_lock.release()
+		return None
+	car_stats_lock.release()
+	return ret	
 
 class communication():
+	def __init__(self):
+		self.connected = False
+
 	def connect(self, ip_address, port) :
+		global sock
+		sock = socket.socket()
 		try:
 			sock.connect((ip_address, port))
 		except socket.error, msg:
 	       		sock.close()
+			sock = None
 			print "could not connect"
 			return False
+		sock.settimeout(3)
 		self.rec_thread = receive_thread()
 		self.rec_thread.deamon = True
 		self.rec_thread.start()
@@ -32,23 +73,25 @@ class communication():
 		return True
 
 	def disconnect(self):
-		connected = False
+		global sock
+		if self.connected == False:
+			return True
+		self.connected = False
 		self.rec_thread.stop()
-		sock.shutdown(2)
+		
 		sock.close()	
 		self.rec_thread.join()
+		sock = None
 		return True
 
 	def send_packet(self, data, mode):
-		if connected == False:
+		if self.connected == False:
 			return False
-	
-		self.rec_thread.stop()
 		length = len(data)
 		if length <= 0 or length > 255:
 			print "data has length" ,length
 			return False
-		if mode != UPDATE and mode != COMMAND and mode != DEBUG :
+		if mode != UPDATE and mode != REQUEST and mode != DEBUG :
 			print "unknown mode ", mode
 			return False
 		sock.send(chr(length))
@@ -62,45 +105,46 @@ class receive_thread(threading.Thread):
 			if self._stop_receive.isSet():
 				print "ending receive" 
 				return
-			try: 
+			try:	
 				data = sock.recv(1) 	#length
-			except	:
-				print "couldnt receive"
+			except:
 				continue
 			if len(data) == 0:
-				print "failed to receive"
-				continue	
+				continue
 			length = ord(data)
 			try:	
 				data = sock.recv(1)	#mode
 			except	:
 				print "couldnt receive packet type"
 				continue
-			if len(data) == 0:
-				print "failed to receive"
-				continue	
 			mode = ord(data)
 			try: 
 				data = sock.recv(length) #data
 			except :
-				print "couldnt receive"
+				print "couldnt receive the data"
 				continue
-			if len(data) == 0:
-				print "failed to receive"
-				continue	
 			self.handle_package(mode,data)
 		return
 	
 	def handle_package(self, mode, data):	
-		if mode == UPDATE:
-			print "Update"
-			glib.idle_add(stuff_box.temp.set_label,"17 degrees C")	
-		elif mode == COMMAND:
-			if data == "sensor":
-				print "sensor"
-		elif mode == DEBUG:
+		if mode == DEBUG:
 			print "its debug:"
 			print data
+			return True
+		if mode == UPDATE:
+			var_list = data.split()
+			length = len(var_list) 	
+			i = 0
+			while i < length-1:
+				if set_car_stats(var_list[i],int(var_list[i+1]))== False:
+					print "unknown var in Package update"
+				i += 2
+			glib.idle_add(stuff_box.temp.set_label,"{temp} Degrees C" .format(temp = get_car_stats("temp")))
+			glib.idle_add(stuff_box.speed.set_label,"{speed} Km/h" .format(speed = get_car_stats("speed")))
+			glib.idle_add(stuff_box.battery.set_fraction, float(float(get_car_stats("battery"))/float(100)))	
+			glib.idle_add(stuff_box.sig_strength.set_fraction, float(float(get_car_stats("signal"))/float(100)))	
+		elif mode == REQUEST:
+			print "request" 
 		else :
 			print "unknown mode"
 			return False
@@ -130,9 +174,11 @@ class main:
 		gtk.main()
 
 	def delete_event(self, widget, event, data=None):
+		self.car.disconnect()
 		return False
 	
 	def destroy(self, widget, data=None):
+		self.car.disconnect()
 		gtk.main_quit()
 
 	def __init__(self):
@@ -158,7 +204,7 @@ class main:
 		self.options_box.remote_ip = gtk.HBox()
 		self.options_box.remote_ip.entry = gtk.Entry(15)
 		self.options_box.remote_ip.entry.set_text("127.0.0.1");
-		self.options_box.remote_ip.connect_button = gtk.Button("Connect    ")
+		self.options_box.remote_ip.connect_button = gtk.Button(" Connect  ")
 		self.options_box.remote_ip.pack_start(self.options_box.remote_ip.entry, False, False, 13)
 		self.options_box.remote_ip.pack_start(self.options_box.remote_ip.connect_button, False, False, 3)
 
@@ -202,14 +248,12 @@ class main:
 		self.window.connect("key-release-event",self.click_event)
 
 		#Singals and Infos about the car:
-		stuff_box.battery_status = gtk.ProgressBar()
-		stuff_box.battery_status.set_text("Battery")
-		stuff_box.battery_status.pulse()
-		stuff_box.signal_strength = gtk.ProgressBar()
-		stuff_box.signal_strength.set_text("Signal strength")
-		stuff_box.signal_strength.pulse()
-		stuff_box.speed = gtk.Label("0.0 km/h")
-		stuff_box.temp = gtk.Label("25 Degrees C.");
+		stuff_box.battery = gtk.ProgressBar()
+		stuff_box.battery.set_text("Battery")
+		stuff_box.sig_strength = gtk.ProgressBar()
+		stuff_box.sig_strength.set_text("Signal strength")
+		stuff_box.speed = gtk.Label("N/A Km/h")
+		stuff_box.temp = gtk.Label("N/A Degrees C.");
 
 		#add the widgets to the boxes
 		self.options_box.pack_start(self.options_box.lights, False, False, 3)
@@ -221,8 +265,8 @@ class main:
 		control_box.pack_start(control_box.sides, True, False, 3)
 		control_box.pack_start(control_box.down_box, True, False, 3)
 
-		stuff_box.pack_start(stuff_box.battery_status, False, False, 3)
-		stuff_box.pack_start(stuff_box.signal_strength, False, False, 3)
+		stuff_box.pack_start(stuff_box.battery, False, False, 3)
+		stuff_box.pack_start(stuff_box.sig_strength, False, False, 3)
 		stuff_box.pack_start(stuff_box.speed, False, False, 3)
 		stuff_box.pack_start(stuff_box.temp, False, False, 3)
 
@@ -240,19 +284,23 @@ class main:
 		#do some initializations
 		self.car = communication()
 	
-		self.current_state = array.array("i")     
-		for i in range(0, len(states)):
-			self.current_state.insert(i, 0)	
-
 	def options_handler(self, widget, data=None):
-		if data == "debug" or data == "logging" :
-			print "Debug OR logging"
+		if data == "debug" :
+			val = 0
+			if widget.get_active():
+				val = 1
+			self.do_action(data,val)
+		if data == "logging" :
+			print "logging is checked"
 		if data == "lights":
-			self.do_action(data,widget.get_active())
+			val = 0
+			if widget.get_active():
+				val = 1
+			self.do_action(data,val)
 		if data == "connect_button":
 			if widget.get_label() == "Disconnect":
 				if self.car.disconnect() == True:
-					widget.set_label("Connect")
+					widget.set_label(" Connect ")
 			else:
 				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 12345) == True :
 					widget.set_label("Disconnect")
@@ -320,22 +368,35 @@ class main:
 				self.do_action("left",0)
 				self.left_clicked = 0
 
-	def do_action(self, state, value):
+	def do_action(self, the_state, value):
+		global my_state_vals
+		global my_states
 		if value == 0:
 			print "released"
 		else:
 			print "pressed"
-		self.current_state[states.index(state)] = value
+		my_state_vals[my_states.index(the_state)] = value
+		self.update()
 		return
 
 	def update(self):
-		#self.car.send_package()		
+		global my_states
+		global my_state_vals
+		data = ""
+		i = 0
+		length = len(my_state_vals)
+		print "length is ", length
+		while i < length:
+			data += "{state}" .format(state = my_states[i])
+			data += " "
+			data += "{val} ".format(val = my_state_vals[i])
+			i += 1
+		print data
+		self.car.send_packet(data, UPDATE)		
 		return
 	
 # If the program is run directly or passed as an argument to the python
 if __name__ == "__main__":
-	hello = main()
-	hello.main()
-
-
+	app = main()
+	app.main()
 
