@@ -37,10 +37,7 @@
 #include "common.h"
 #include "tprintf.h"
 #include "servo.h"
-
-#ifdef USE_TERMINAL
-	#include "terminal.h"
-#endif
+#include "serial_io.h"
 
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
@@ -55,15 +52,10 @@ static void setup_usart(void);
 static void setup_nvic(void);
 static void main_noreturn(void) NORETURN;
 
-
 static void button_task(void *pvParameters) NORETURN;
 static void startup_task(void *pvParameters) NORETURN;
 
-#ifdef USE_TERMINAL
-static void term_task(void *pvParameters) NORETURN;
-#else
-static void remote_command_task(void *pvParameters) NORETURN;
-#endif
+extern void serial_task(void *pvParameters) NORETURN; // defined in serial-io
 
 static void setup(void);
 
@@ -76,8 +68,7 @@ enum button_state
 	BUTTON_STATE_DOWN
 };
 
-
-static xQueueHandle tprintf_queue;
+xQueueHandle tprintf_queue;
 xQueueHandle uart_receive_queue;
 
 static xSemaphoreHandle debounce_sem;
@@ -114,13 +105,8 @@ inline void main_noreturn(void)
 	xTaskCreate(startup_task, (signed portCHAR *)"startup", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 5, &task);
 	assert_param(task);
 	
-#ifdef USE_TERMINAL
-	xTaskCreate(term_task, (signed portCHAR *)"terminal", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1, &task);
+	xTaskCreate(serial_task, (signed portCHAR *)"serial", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);
-#else
-	xTaskCreate(remote_command_task, (signed portCHAR *)"command", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1, &task);
-	assert_param(task);
-#endif	
 
 	xTaskCreate(button_task, (signed portCHAR *)"button", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, &task);
 	assert_param(task);
@@ -334,59 +320,6 @@ void startup_task(void *pvParameters)
 	vTaskDelete(NULL);
 	for(;;);
 }
-
-#ifdef USE_TERMINAL
-void term_task(void *pvParameters) 
-{
-	char crrnt_cmd[TERM_CMD_LENGTH];
-	int crrnt_cmd_i = 0;	
-	
-	tprintf("FreeRTOS RC-CAR ---- chrisudeussen@gmail.com\n");
-
-	add_cmd("help", cmd_help);
-	add_cmd("status", cmd_status);
-	add_cmd("servo_cal", cmd_servo_cal);
-	add_cmd("servo", cmd_servo);
-
-	char ch;
-
-	tprintf("\n$");	
-	for (;;) { 
-		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);// it blocks 
-		switch(ch) {
-			case '\b':
-				if(crrnt_cmd_i > 0) {
-					tprintf("%c %c",ch,ch);
-					crrnt_cmd_i --; 
-				}
-				break;
-			case '\n':
-			case '\r':
-				tprintf("\n");
-				if(crrnt_cmd_i > 0) {
-					crrnt_cmd[crrnt_cmd_i] = 0x00;
-					if(parse_cmd(crrnt_cmd)) {
-						tprintf("unknown cmd\n");
-					} 
-				} 
-				tprintf("$");	
-				crrnt_cmd_i = 0;
-				break;
-			default : 
-				tprintf("%c",ch);
-				crrnt_cmd[crrnt_cmd_i] = ch;
-				if(crrnt_cmd_i < TERM_CMD_LENGTH-1) {
-					crrnt_cmd_i ++;
-				}
-		}
-	}
-}
-#else
-void remote_command_task(void *pvParameters)
-{
-
-}
-#endif // USE_TERMINAL
 
 void button_task(void *pvParameters)
 {

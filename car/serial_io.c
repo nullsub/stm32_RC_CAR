@@ -1,7 +1,81 @@
-#ifdef USE_TERMINAL
-
-#include "terminal.h"
+#include "serial_io.h"
 #include <string.h>
+
+extern xQueueHandle tprintf_queue;
+extern xQueueHandle uart_receive_queue;
+
+#ifndef USE_TERMINAL
+static void handle_package(char * command, char mode);
+
+void serial_task(void *pvParameters) //remote_command_task
+{
+	char command[MAX_COMMAND_LENGTH];
+	uint8_t length = 0;
+	char mode = 0;
+	char ch;
+	for (;;) {
+		xQueueReceive(uart_receive_queue, &length, portMAX_DELAY); // get length
+		xQueueReceive(uart_receive_queue, &mode, portMAX_DELAY); // mode 
+		for(int i = 0; i < length; i++){ 
+			xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);// it blocks 
+			command[i] = ch;
+		}
+		command[length] = 0x00;
+		handle_package(command, mode);
+	}
+}
+
+void handle_package(char * command, char mode)
+{
+	return;
+}
+
+#else
+void serial_task(void *pvParameters) //term-task
+{
+	char crrnt_cmd[TERM_CMD_LENGTH];
+	int crrnt_cmd_i = 0;	
+	
+	tprintf("FreeRTOS RC-CAR ---- chrisudeussen@gmail.com\n");
+
+	add_cmd("help", cmd_help);
+	add_cmd("status", cmd_status);
+	add_cmd("servo_cal", cmd_servo_cal);
+	add_cmd("servo", cmd_servo);
+
+	char ch;
+
+	tprintf("\n$");	
+	for (;;) { 
+		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);// it blocks 
+		switch(ch) {
+			case '\b':
+				if(crrnt_cmd_i > 0) {
+					tprintf("%c %c",ch,ch);
+					crrnt_cmd_i --; 
+				}
+				break;
+			case '\n':
+			case '\r':
+				tprintf("\n");
+				if(crrnt_cmd_i > 0) {
+					crrnt_cmd[crrnt_cmd_i] = 0x00;
+					if(parse_cmd(crrnt_cmd)) {
+						tprintf("unknown cmd\n");
+					} 
+				} 
+				tprintf("$");	
+				crrnt_cmd_i = 0;
+				break;
+			default : 
+				tprintf("%c",ch);
+				crrnt_cmd[crrnt_cmd_i] = ch;
+				if(crrnt_cmd_i < TERM_CMD_LENGTH-1) {
+					crrnt_cmd_i ++;
+				}
+		}
+	}
+}
 
 struct cmd{
 	void (*func)(char *args);
@@ -190,5 +264,5 @@ int add_cmd(char * cmd_name, void (*func)(char *args))
 	nr_of_cmds ++;
 	return 0;
 }
+#endif // USE_TERMINAL
 
-#endif //USE_TERMINAL

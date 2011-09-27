@@ -81,7 +81,7 @@ RTOSINCDIR = $(RTOSSRCDIR)/include
 SRC = main.c
 
 ## Application
-SRC += terminal.c
+SRC += serial_io.c
 
 #Hardware
 SRC += $(HARDWAREDIR)/servo.c
