@@ -8,3 +8,13 @@ The goal of this rc-car project is to control an rc-car over ethernet by a pc/sm
 for compiling the stm32 arm code I used the sat[1] toolchain on a fedora machine.
 
 [1]https://github.com/esden/summon-arm-toolchain
+
+
+
+
+Remote Cotrolling protocol:
+A package consists of:
+[length] + [mode] + [plaintext ascii command/message]
+where length and mode are one byte. Length may be 0!
+for the standart UPDATE_MODE package, the message text consinst of:
+[index_for_var_a][a_space][value_for_var_a][a_space].....up to a length of 255bytes!

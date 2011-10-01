@@ -7,55 +7,13 @@
 #include "servo.h"
 #endif
 
+#include "FreeRTOS.h"
 #include <queue.h>
 
 extern xQueueHandle tprintf_queue;
 extern xQueueHandle uart_receive_queue;
 
-void itoa(int z, char *Buffer, int base_NOT_USED_ALWAYS_TEN)
-{
-	int i = 0;
-	int j;
-	char tmp;
-	unsigned u;		// In u bearbeiten wir den Absolutbetrag von z.
-
-	// ist die Zahl negativ?
-	// gleich mal ein - hinterlassen und die Zahl positiv machen
-	if (z < 0) {
-		Buffer[0] = '-';
-		Buffer++;
-		// -INT_MIN ist idR. größer als INT_MAX und nicht mehr 
-		// als int darstellbar! Man muss daher bei der Bildung 
-		// des Absolutbetrages aufpassen.
-		u = ((unsigned)-(z + 1)) + 1;
-	} else {
-		u = (unsigned)z;
-	}
-	// die einzelnen Stellen der Zahl berechnen
-	do {
-		Buffer[i++] = '0' + u % 10;
-		u /= 10;
-	} while (u > 0);
-
-	// den String in sich spiegeln
-	for (j = 0; j < i / 2; ++j) {
-		tmp = Buffer[j];
-		Buffer[j] = Buffer[i - j - 1];
-		Buffer[i - j - 1] = tmp;
-	}
-	Buffer[i] = '\0';
-}
-
-int atoi(char *c)
-{
-	int res = 0;
-	while (*c >= '0' && *c <= '9')
-		res = res * 10 + *c++ - '0';
-	return res;
-}
-
 #ifndef USE_TERMINAL
-
 static void handle_package(char *command, char mode);
 static void send_all_vals();
 static int get_word(char *buffer, char *source);
@@ -64,7 +22,7 @@ static void send_package(char *command, char mode);
 void serial_task(void *pvParameters)	//remote_command_task
 {
 	char command[MAX_COMMAND_LENGTH];
-	uint8_t length = 0;
+	char length = 0;
 	char mode = 0;
 	char ch;
 
@@ -73,11 +31,11 @@ void serial_task(void *pvParameters)	//remote_command_task
 	for (;;) {
 		xQueueReceive(uart_receive_queue, &length, portMAX_DELAY);	// get length
 		xQueueReceive(uart_receive_queue, &mode, portMAX_DELAY);	// mode 
-		for (int i = 0; i < length; i++) {
+		for (int i = 0; i < (unsigned int) length; i++) {
 			xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);	// it blocks 
 			command[i] = ch;
 		}
-		command[length] = 0x00;
+		command[(int)length] = 0x00;
 		handle_package(command, mode);
 	}
 }
@@ -94,13 +52,12 @@ void handle_package(char *command, char mode)
 	case UPDATE_MODE:{	//Remote app sends updated vars
 			int string_i = 0;
 			int length = strlen(command);
-			char *name;
+			char *index;
 			char *val;
 			while (string_i < length) {
-				string_i +=
-				    get_word(name, (command + string_i));
+				string_i += get_word(index, (command + string_i));
 				string_i += get_word(val, (command + string_i));
-				status_update_var(name, atoi(val));
+				status_update_var(atoi(index), atoi(val));
 			}
 		}
 		break;
@@ -108,7 +65,7 @@ void handle_package(char *command, char mode)
 	return;
 }
 
-int get_word(char *buffer, char *source)
+int get_word(char *buffer, char *source) // merge with the TERMINALs implementation... TODO: FIXME
 {
 	char *source_start = source;
 	while (*source == ' ')
@@ -140,7 +97,7 @@ void send_package(char *command, char mode)
 	if (strlen(command) > 255) {
 		debug_msg("command to long in send_package");
 	}
-	uint8_t length = strlen(command);
+	char length = strlen(command);
 	data_out(&length, 1);
 	data_out(&mode, 1);
 	data_out(command, length);

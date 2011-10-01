@@ -16,21 +16,24 @@ UPDATE = 0
 REQUEST = 1
 DEBUG = 2
 
-my_states = ["right","left", "forward","backward","lights", "debug"]
-my_state_vals = [0 ,  0   ,     0    ,    0     ,   0    ,     0  ,]
+my_states_index = [ "0" ,   "1"   , "2"  ,  "3"   ,]
+my_states = ["steering", "accel","lights", "debug",]
+my_state_vals = [ 50   ,     50  ,    0  ,    0   ,]
 
-car_stats = ["temp", "battery", "signal", "speed",]
+car_stats_index = ["4", "5"   ,   "6"   ,   "7"  ,]
+car_stats = ["temp", "speed", "battery", "signal",]
 car_stats_vals = [0,      0    ,     0   ,   0   ,]
+
 car_stats_lock = thread.allocate_lock()
 
-def set_car_stats(name, val):
+def set_car_stats(index, val):
 	global car_stats_vals
 	global car_stats
 	global car_stats_lock
 
 	car_stats_lock.acquire()
 	try:
-		car_stats_vals[car_stats.index(name)] = val
+		car_stats_vals[car_stats_index.index(index)] = val
 	except ValueError:
 		car_stats_lock.release()
 		return False
@@ -375,6 +378,36 @@ class main:
 			print "released"
 		else:
 			print "pressed"
+		if the_state == "forward":
+			if value == 0: 
+				value = 128 # stop
+			else :
+				value = 255	#fullspeed
+			the_state = "accel"
+		if the_state == "backward":
+			if value == 0:
+				value = 128
+			else:
+				 value = 0  #backward
+			the_state = "accel"
+			
+		if the_state == "right":
+			if value == 0:
+				value = 128
+			else :
+				value = 255 #full right
+			the_state = "steering"
+		if the_state == "left":
+			if value == 0:
+				value = 128
+			else :
+				value = 0 #full left
+			the_state = "steering"
+
+		if the_state == "steering":
+			value = ((value*(10/256))+10) #the car expects 10 to be left, and 20 right. so 15 is middle
+			value += 0.5 #correct rounding
+			value = int(value)
 		my_state_vals[my_states.index(the_state)] = value
 		self.update()
 		return
@@ -385,9 +418,8 @@ class main:
 		data = ""
 		i = 0
 		length = len(my_state_vals)
-		print "length is ", length
 		while i < length:
-			data += "{state}" .format(state = my_states[i])
+			data += "{state}" .format(state = my_states_index[i])
 			data += " "
 			data += "{val} ".format(val = my_state_vals[i])
 			i += 1

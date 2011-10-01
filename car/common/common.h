@@ -45,4 +45,7 @@
 
 #define NORETURN __attribute__((noreturn))
 
+void itoa(int z, char *Buffer, int base_NOT_USED_ALWAYS_TEN);
+int atoi(char *c);
+
 #endif				/* COMMON_H */

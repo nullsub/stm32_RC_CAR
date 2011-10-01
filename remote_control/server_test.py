@@ -30,16 +30,16 @@ conn, addr = s.accept()
 print "connected by ",addr
 while 1:
 	sys.stdin.read(1)	
-	send_packet(conn,"temp 23 battery 76 signal 52",UPDATE)
+	send_packet(conn,"4 23 6 76 7 52",UPDATE)
 	
 	sys.stdin.read(1)	
-	send_packet(conn,"temp 21 battery 76 signal 12",UPDATE)
+	send_packet(conn,"4 21 6 76 7 12",UPDATE)
 	
 	sys.stdin.read(1)	
-	send_packet(conn,"speed 32",UPDATE)
+	send_packet(conn,"5 32",UPDATE)
 
 	sys.stdin.read(1)	
-	send_packet(conn,"temp 24 battery 70 signal 45",UPDATE)
+	send_packet(conn,"4 24 6 70 7 45",UPDATE)
 conn.close()
 
 

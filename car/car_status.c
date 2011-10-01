@@ -1,9 +1,9 @@
 #include "car_status.h"
+#include "servo.h"
+#include "common.h"
 
-static struct car_val left;
-static struct car_val right;
-static struct car_val forward;
-static struct car_val backward;
+struct car_val steering;
+static struct car_val accel;
 static struct car_val lights;
 static struct car_val debug;
 static struct car_val temp;
@@ -12,52 +12,54 @@ static struct car_val battery;
 
 void status_init()
 {
-	car_vals = &left;
+	car_vals = &steering;
 
-	left.name = "left";
-	left.remote_controlled = 1;
-	left.next = &right;
+	steering.name = "steering";
+	steering.index = STEERING_INDEX;
+	steering.remote_controlled = 1;
+	steering.next = &accel;
 
-	right.name = "right";
-	right.remote_controlled = 1;
-	right.next = &forward;
-
-	forward.name = "forward";
-	forward.remote_controlled = 1;
-	forward.next = &backward;
-
-	backward.name = "backward";
-	backward.remote_controlled = 1;
-	backward.next = &lights;
+	accel.name = "accel";
+	accel.index = ACCEL_INDEX;
+	accel.remote_controlled = 1;
+	accel.next = &lights;
 
 	lights.name = "lights";
+	lights.index = LIGHTS_INDEX;
 	lights.remote_controlled = 1;
 	lights.next = &debug;
 
 	debug.name = "debug";
+	debug.index = DEBUG_INDEX;
 	debug.remote_controlled = 1;
 	debug.next = &temp;
 
 	temp.name = "temp";
+	temp.index = TEMP_INDEX;
 	temp.remote_controlled = 0;
 	temp.next = &speed;
 
 	speed.name = "speed";
+	speed.index = SPEED_INDEX;
 	speed.remote_controlled = 0;
 	speed.next = &battery;
 
 	battery.name = "battery";
+	battery.index = BATTERY_INDEX;
 	battery.remote_controlled = 0;
 	battery.next = 0x00000000;
 }
 
-void status_update_var(char *name, int val)
+void status_update_var(int index, int val)
 {
 	struct car_val *current_val = car_vals;
 	int string_i = 0;
 	while (string_i < 250 && current_val != 0x00) {
-		if (strcmp(current_val->name, name) == 0) {
+		if (current_val->index == index) {
 			current_val->val = val;
+			if(current_val->remote_controlled == STEERING_INDEX) {
+				servo_set(val, STEERING_SERVO);
+			}
 			return;
 		}
 		current_val = current_val->next;
@@ -69,17 +71,17 @@ void status_update_var(char *name, int val)
 void status_get_var_str(char *buffer)
 {
 	struct car_val *current_val = car_vals;
-	int string_i = 0;
-	while (string_i < 250 && current_val != 0x00) {
+	while (current_val != 0x00) {
 		if (current_val->remote_controlled == 0) {
-			strcpy((buffer + string_i), current_val->name);
-			string_i += strlen(current_val->name);
-			strcpy((buffer + string_i), " ");
-			string_i++;
-			itoa(current_val->val, (buffer + string_i), 10);
-			string_i++;
-			strcpy((buffer + string_i), " ");
-			string_i++;
+			itoa(current_val->index, (buffer),10);
+			while(*buffer)
+				buffer ++;
+			*buffer =  ' ';
+			itoa(current_val->val, (buffer + 1), 10);
+			while(*buffer)
+				buffer ++;
+			*buffer =  ' ';
+			buffer ++;
 		}
 		current_val = current_val->next;
 	}

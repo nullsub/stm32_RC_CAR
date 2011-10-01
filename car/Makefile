@@ -89,6 +89,7 @@ SRC += $(HARDWAREDIR)/servo.c
 SRC += $(HARDWAREDIR)/temperature.c
 
 ## COMMON:
+SRC += $(COMMONDIR)/common.c
 ifeq ($(DEBUG),YES)
 SRC += $(COMMONDIR)/fault.c
 SRC += $(COMMONDIR)/tprintf.c
