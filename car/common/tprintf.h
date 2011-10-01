@@ -23,12 +23,11 @@
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-
 #ifndef TPRINTF_H
 #define TPRINTF_H
 
 /* writes bytes to the serial port*/
-int data_out(void* data_to_write, int nr_of_bytes);
+int data_out(void *data_to_write, int nr_of_bytes);
 
 /**
  * @brief  Tiny embedded version of printf
@@ -39,7 +38,10 @@ int data_out(void* data_to_write, int nr_of_bytes);
 #ifdef DEBUG
 int tprintf(const char *format, ...);
 #else
-inline int tprintf(const char *format, ...) { return 0; }
+inline int tprintf(const char *format, ...)
+{
+	return 0;
+}
 #endif
 
 /**
@@ -52,7 +54,10 @@ inline int tprintf(const char *format, ...) { return 0; }
 #ifdef DEBUG
 int tsprintf(char *out, const char *format, ...);
 #else
-inline int tsprintf(char *out, const char *format, ...) { return 0; }
+inline int tsprintf(char *out, const char *format, ...)
+{
+	return 0;
+}
 #endif
 
 /**
@@ -64,10 +69,12 @@ inline int tsprintf(char *out, const char *format, ...) { return 0; }
  *         On failure, a negative number is returned.
  */
 #ifdef DEBUG
-int tsnprintf(char *out, unsigned int count, const char *format, ... );
+int tsnprintf(char *out, unsigned int count, const char *format, ...);
 #else
-inline int tsnprintf(char *out, unsigned int count, const char *format, ... ) { return 0; }
+inline int tsnprintf(char *out, unsigned int count, const char *format, ...)
+{
+	return 0;
+}
 #endif
 
-#endif /* TPRINTF_H */
-
+#endif				/* TPRINTF_H */

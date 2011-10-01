@@ -111,86 +111,75 @@ void WEAK dma2_channel3_isr(void);
 void WEAK dma2_channel4_5_isr(void);
 
 __attribute__ ((section(".vectors")))
-void (*const vector_table[]) (void) = {
-	(void *)((unsigned long)stack + sizeof(stack)),
-	reset_handler,
-	nmi_handler,
-	hard_fault_handler,
-	mem_manage_handler,
-	bus_fault_handler,
-	usage_fault_handler,
-	0, 0, 0, 0,		/* Reserved */
-	sv_call_handler,
-	debug_monitor_handler,
-	0,			/* Reserved */
-	pend_sv_handler,
-	sys_tick_handler,
-	wwdg_isr,
-	pvd_isr,
-	tamper_isr,
-	rtc_isr,
-	flash_isr,
-	rcc_isr,
-	exti0_isr,
-	exti1_isr,
-	exti2_isr,
-	exti3_isr,
-	exti4_isr,
-	dma1_channel1_isr,
-	dma1_channel2_isr,
-	dma1_channel3_isr,
-	dma1_channel4_isr,
-	dma1_channel5_isr,
-	dma1_channel6_isr,
-	dma1_channel7_isr,
-	adc1_2_isr,
-	usb_hp_can_tx_isr,
-	usb_lp_can_rx0_isr,
-	can_rx1_isr,
-	can_sce_isr,
-	exti9_5_isr,
-	tim1_brk_isr,
-	tim1_up_isr,
-	tim1_trg_com_isr,
-	tim1_cc_isr,
-	tim2_isr,
-	tim3_isr,
-	tim4_isr,
-	i2c1_ev_isr,
-	i2c1_er_isr,
-	i2c2_ev_isr,
-	i2c2_er_isr,
-	spi1_isr,
-	spi2_isr,
-	usart1_isr,
-	usart2_isr,
-	usart3_isr,
-	exti15_10_isr,
-	rtc_alarm_isr,
-	usb_wakeup_isr,
-	tim8_brk_isr,
-	tim8_up_isr,
-	tim8_trg_com_isr,
-	tim8_cc_isr,
-	adc3_isr,
-	fsmc_isr,
-	sdio_isr,
-	tim5_isr,
-	spi3_isr,
-	usart4_isr,
-	usart5_isr,
-	tim6_isr,
-	tim7_isr,
-	dma2_channel1_isr,
-	dma2_channel2_isr,
-	dma2_channel3_isr,
-	dma2_channel4_5_isr,
-};
+void (*const vector_table[]) (void) =
+{
+	(void *)((unsigned long)stack + sizeof(stack)), reset_handler, nmi_handler, hard_fault_handler, mem_manage_handler, bus_fault_handler, usage_fault_handler, 0, 0, 0, 0,	/* Reserved */
+	    sv_call_handler, debug_monitor_handler, 0,	/* Reserved */
+pend_sv_handler,
+	    sys_tick_handler,
+	    wwdg_isr,
+	    pvd_isr,
+	    tamper_isr,
+	    rtc_isr,
+	    flash_isr,
+	    rcc_isr,
+	    exti0_isr,
+	    exti1_isr,
+	    exti2_isr,
+	    exti3_isr,
+	    exti4_isr,
+	    dma1_channel1_isr,
+	    dma1_channel2_isr,
+	    dma1_channel3_isr,
+	    dma1_channel4_isr,
+	    dma1_channel5_isr,
+	    dma1_channel6_isr,
+	    dma1_channel7_isr,
+	    adc1_2_isr,
+	    usb_hp_can_tx_isr,
+	    usb_lp_can_rx0_isr,
+	    can_rx1_isr,
+	    can_sce_isr,
+	    exti9_5_isr,
+	    tim1_brk_isr,
+	    tim1_up_isr,
+	    tim1_trg_com_isr,
+	    tim1_cc_isr,
+	    tim2_isr,
+	    tim3_isr,
+	    tim4_isr,
+	    i2c1_ev_isr,
+	    i2c1_er_isr,
+	    i2c2_ev_isr,
+	    i2c2_er_isr,
+	    spi1_isr,
+	    spi2_isr,
+	    usart1_isr,
+	    usart2_isr,
+	    usart3_isr,
+	    exti15_10_isr,
+	    rtc_alarm_isr,
+	    usb_wakeup_isr,
+	    tim8_brk_isr,
+	    tim8_up_isr,
+	    tim8_trg_com_isr,
+	    tim8_cc_isr,
+	    adc3_isr,
+	    fsmc_isr,
+	    sdio_isr,
+	    tim5_isr,
+	    spi3_isr,
+	    usart4_isr,
+	    usart5_isr,
+	    tim6_isr,
+	    tim7_isr,
+	    dma2_channel1_isr,
+	    dma2_channel2_isr, dma2_channel3_isr, dma2_channel4_5_isr,};
 
 void reset_handler(void)
 {
 	volatile unsigned *src, *dest;
-	asm("MSR msp, %0" : : "r"(vector_table[0]));
+ asm("MSR msp, %0": :"r"(vector_table[0]));
 
 #ifdef DEBUG
 	SCB->SHCSR |= 0x00070000;
@@ -210,7 +199,7 @@ void reset_handler(void)
 
 void blocking_handler(void)
 {
-	while (1);
+	while (1) ;
 }
 
 void null_handler(void)
@@ -287,4 +276,3 @@ void null_handler(void)
 #pragma weak dma2_channel2_isr = null_handler
 #pragma weak dma2_channel3_isr = null_handler
 #pragma weak dma2_channel4_5_isr = null_handler
-

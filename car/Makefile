@@ -82,6 +82,7 @@ SRC = main.c
 
 ## Application
 SRC += serial_io.c
+SRC += car_status.c
 
 #Hardware
 SRC += $(HARDWAREDIR)/servo.c

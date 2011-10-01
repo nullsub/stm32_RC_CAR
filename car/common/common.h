@@ -23,28 +23,26 @@
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-
 #ifndef COMMON_H
 #define COMMON_H
 
 #define SUCCESS(e) (e >= 0)
 #define FAILURE(e) (e < 0)
 
-#define ERR_GENERIC	1 /* Generic error */
-#define ERR_EXIST	2 /* Already exists */
-#define ERR_NOINIT	3 /* Not initialized */
-#define ERR_NOIMP	4 /* Not implemented */
-#define ERR_PARAM	5 /* Invalid parameter */
-#define ERR_TIMEOUT	6 /* Timeout */
-#define ERR_OVERFLOW	7 /* Overflow */
-#define ERR_NOCONNECT	8 /* Not connected */
+#define ERR_GENERIC	1	/* Generic error */
+#define ERR_EXIST	2	/* Already exists */
+#define ERR_NOINIT	3	/* Not initialized */
+#define ERR_NOIMP	4	/* Not implemented */
+#define ERR_PARAM	5	/* Invalid parameter */
+#define ERR_TIMEOUT	6	/* Timeout */
+#define ERR_OVERFLOW	7	/* Overflow */
+#define ERR_NOCONNECT	8	/* Not connected */
 
-#define IRQ_PRIO_LOW				12		// lower than RTOS
-#define IRQ_PRIO_MID				8		// higher than RTOS
-#define IRQ_PRIO_HIGH				5		// for SPI, ADC, I2C etc...
-#define IRQ_PRIO_HIGHEST			4 		// for USART etc...
+#define IRQ_PRIO_LOW				12	// lower than RTOS
+#define IRQ_PRIO_MID				8	// higher than RTOS
+#define IRQ_PRIO_HIGH				5	// for SPI, ADC, I2C etc...
+#define IRQ_PRIO_HIGHEST			4	// for USART etc...
 
 #define NORETURN __attribute__((noreturn))
 
-#endif /* COMMON_H */
-
+#endif				/* COMMON_H */

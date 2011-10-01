@@ -55,15 +55,14 @@ static void main_noreturn(void) NORETURN;
 static void button_task(void *pvParameters) NORETURN;
 static void startup_task(void *pvParameters) NORETURN;
 
-extern void serial_task(void *pvParameters) NORETURN; // defined in serial-io
+extern void serial_task(void *pvParameters) NORETURN;	// defined in serial-io
 
 static void setup(void);
 
 static void blink_toggle_blue(void);
 static void blink_toggle_green(void);
 
-enum button_state
-{
+enum button_state {
 	BUTTON_STATE_UP,
 	BUTTON_STATE_DOWN
 };
@@ -77,15 +76,10 @@ static enum button_state button_state;
 static uint8_t led_blue = 1;
 static uint8_t led_green = 1;
 
-/**
- * @brief  Retargets the C library printf function to the USART.
- * @param  ch The character to print
- * @retval The character printed
- */
 unsigned char outbyte(unsigned char ch)
 {
 	/* Enable USART TXE interrupt */
-	xQueueSendToBack(tprintf_queue, &ch, portMAX_DELAY); //blocks!
+	xQueueSendToBack(tprintf_queue, &ch, portMAX_DELAY);	//blocks!
 	USART_ITConfig(USART1, USART_IT_TXE, ENABLE);
 	return ch;
 }
@@ -102,20 +96,48 @@ inline void main_noreturn(void)
 {
 	xTaskHandle task;
 
-	xTaskCreate(startup_task, (signed portCHAR *)"startup", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 5, &task);
-	assert_param(task);
-	
-	xTaskCreate(serial_task, (signed portCHAR *)"serial", configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1, &task);
+	xTaskCreate(startup_task, (signed portCHAR *)"startup",
+		    configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 5,
+		    &task);
 	assert_param(task);
 
-	xTaskCreate(button_task, (signed portCHAR *)"button", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, &task);
+	xTaskCreate(serial_task, (signed portCHAR *)"serial",
+		    configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1,
+		    &task);
+	assert_param(task);
+
+	xTaskCreate(button_task, (signed portCHAR *)"button",
+		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1,
+		    &task);
 	assert_param(task);
 
 	/* Start the FreeRTOS scheduler */
 	vTaskStartScheduler();
 	assert_param(NULL);
 
-	while (1);
+	while (1) ;
+}
+
+void startup_task(void *pvParameters)
+{
+	tprintf_queue = xQueueCreate(TPRINTF_QUEUE_SIZE, sizeof(unsigned char));
+	assert_param(tprintf_queue);
+
+	uart_receive_queue =
+	    xQueueCreate(RECEIVE_QUEUE_SIZE, sizeof(unsigned char));
+	assert_param(uart_receive_queue);
+
+	vSemaphoreCreateBinary(debounce_sem);
+	assert_param(debounce_sem);
+
+	setup();
+
+	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);	//enable receiving.
+
+	servo_init();
+
+	vTaskDelete(NULL);
+	for (;;) ;
 }
 
 static inline void setup()
@@ -136,16 +158,16 @@ void setup_rcc(void)
 {
 	/* Enable PWR clock */
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR |
-			RCC_APB1Periph_BKP | RCC_APB1Periph_TIM2
-			, ENABLE);
+			       RCC_APB1Periph_BKP | RCC_APB1Periph_TIM2,
+			       ENABLE);
 
 	/* Enable GPIOA and GPIOC clock */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA |
-			RCC_APB2Periph_GPIOC |
-			RCC_APB2Periph_USART1 |
-			RCC_APB2Periph_AFIO, ENABLE);
+			       RCC_APB2Periph_GPIOC |
+			       RCC_APB2Periph_USART1 |
+			       RCC_APB2Periph_AFIO, ENABLE);
 
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE); 
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 }
 
 /**
@@ -165,12 +187,12 @@ void setup_gpio(void)
 
 	/* Configure UART rx pin */
 	gpio_init.GPIO_Pin = GPIO_Pin_10;
-	gpio_init.GPIO_Mode = GPIO_Mode_IN_FLOATING; //GPIO_Mode_AF_PP;
+	gpio_init.GPIO_Mode = GPIO_Mode_IN_FLOATING;	//GPIO_Mode_AF_PP;
 	gpio_init.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &gpio_init);
 
 	//config LED pins and servo
-	gpio_init.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9 | SERVO_PIN_0 | SERVO_PIN_1;  // do this in servo.c servo_init()
+	gpio_init.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9 | SERVO_PIN_0 | SERVO_PIN_1;	// do this in servo.c servo_init()
 	gpio_init.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_Init(GPIOC, &gpio_init);
 
@@ -245,7 +267,6 @@ void setup_nvic(void)
 	nvic_init.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&nvic_init);
 
-
 	/* Configure EXTI interrupt */
 	nvic_init.NVIC_IRQChannel = EXTI0_IRQn;
 	nvic_init.NVIC_IRQChannelPreemptionPriority = 0xc;
@@ -275,7 +296,7 @@ void usart1_isr(void)
 		else
 			USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
 	}
-	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {	
+	if (USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {
 		ch = USART_ReceiveData(USART1);
 		xQueueSendFromISR(uart_receive_queue, &ch, &task_woken);
 
@@ -300,33 +321,12 @@ void exti0_isr(void)
 	portEND_SWITCHING_ISR(task_woken);
 }
 
-void startup_task(void *pvParameters)
-{
-	tprintf_queue = xQueueCreate(TPRINTF_QUEUE_SIZE, sizeof(unsigned char));
-	assert_param(tprintf_queue);
-
-	uart_receive_queue = xQueueCreate(RECEIVE_QUEUE_SIZE, sizeof(unsigned char));
-	assert_param(uart_receive_queue);
-
-	vSemaphoreCreateBinary(debounce_sem);
-	assert_param(debounce_sem);
-
-	setup();
-
-	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE); //enable receiving.
-
-	servo_init();
-
-	vTaskDelete(NULL);
-	for(;;);
-}
-
 void button_task(void *pvParameters)
 {
 	portTickType delay = portMAX_DELAY;
 	uint8_t debounce = 0;
 
-	vTaskDelay(2000/portTICK_RATE_MS); // dont remooove, RACE CONDITION! :)
+	vTaskDelay(2000 / portTICK_RATE_MS);	// dont remooove, RACE CONDITION! :)
 
 	blink_toggle_blue();
 
@@ -336,18 +336,17 @@ void button_task(void *pvParameters)
 				debounce = 1;
 				delay = DEBOUNCE_DELAY;
 			}
-		}
-		else {
-			volatile uint8_t button = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0);
+		} else {
+			volatile uint8_t button =
+			    GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0);
 
 			if (button_state == BUTTON_STATE_UP && button) {
 				button_state = BUTTON_STATE_DOWN;
 				blink_toggle_blue();
-				tprintf("button press\r\n");
-			}
-			else if (button_state == BUTTON_STATE_DOWN && !button) {
+				//tprintf("button press\r\n");
+			} else if (button_state == BUTTON_STATE_DOWN && !button) {
 				button_state = BUTTON_STATE_UP;
-				tprintf("button release\r\n");
+				//tprintf("button release\r\n");
 			}
 
 			debounce = 0;
@@ -367,4 +366,3 @@ void blink_toggle_green()
 	GPIO_WriteBit(GPIOC, GPIO_Pin_9, led_green);
 	led_green ^= 1;
 }
-

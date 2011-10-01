@@ -2,13 +2,14 @@
 #define TEMPERATURE_C
 
 #include "temperature.h"
-#include <stdlib.h> // itoa
-
-/* STM32 includes */
+#include <stdlib.h>		// itoa
+    
+/* STM32 includes */ 
 #include <stm32f10x.h>
 #include <stm32f10x_conf.h>
-
-void init_temperature(){
+void init_temperature()
+{
+	
 /*	I2C_InitTypeDef i2c_init;
 
 	I2C_StructInit(&i2c_init);
@@ -24,9 +25,9 @@ void init_temperature(){
 	I2C_Init(I2C1, &i2c_init);
 
 	I2C_Cmd();
-*/
-}
-void get_temperature(unsigned int adress, char * s){ // adress of the i2c ds1621 sensor
+*/ 
+} void get_temperature(unsigned int adress, char *s)
+{				// adress of the i2c ds1621 sensor
 /*	unsigned char   TempH, TempL;
 	adress &= 0x0E;
 	i2c_start(DS1621_Write|adress);
@@ -51,9 +52,6 @@ void get_temperature(unsigned int adress, char * s){ // adress of the i2c ds1621
 		*s++ = '0';
 	}
 	*s = 0x00; //mark endo of string
-*/
-}
-
-
-
-#endif
+*/ 
+}    
+#endif	/*  */
