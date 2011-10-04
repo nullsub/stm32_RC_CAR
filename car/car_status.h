@@ -1,7 +1,7 @@
 #ifndef CAR_STATUS_H_
 #define CAR_STATUS_H_
 
-#define STEERING_INDEX 0 
+#define STEERING_INDEX  0 
 #define ACCEL_INDEX	1
 #define LIGHTS_INDEX	2	
 #define DEBUG_INDEX	3

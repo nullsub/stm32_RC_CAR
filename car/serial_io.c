@@ -1,17 +1,19 @@
 #include "serial_io.h"
 #include "car_status.h"
+#include "common.h"
 #include "tprintf.h"
+
+//#include "FreeRTOS.h"
+//#include "queue.h"
+
 #include <string.h>
 
 #ifdef USE_TERMINAL
 #include "servo.h"
 #endif
 
-#include "FreeRTOS.h"
-#include <queue.h>
-
-extern xQueueHandle tprintf_queue;
-extern xQueueHandle uart_receive_queue;
+//extern xQueueHandle tprintf_queue;
+//extern xQueueHandle uart_receive_queue;
 
 #ifndef USE_TERMINAL
 static void handle_package(char *command, char mode);
@@ -29,10 +31,10 @@ void serial_task(void *pvParameters)	//remote_command_task
 	status_init();
 
 	for (;;) {
-		xQueueReceive(uart_receive_queue, &length, portMAX_DELAY);	// get length
-		xQueueReceive(uart_receive_queue, &mode, portMAX_DELAY);	// mode 
+	//	xQueueReceive(uart_receive_queue, &length, portMAX_DELAY);	// get length
+	//	xQueueReceive(uart_receive_queue, &mode, portMAX_DELAY);	// mode 
 		for (int i = 0; i < (unsigned int) length; i++) {
-			xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);	// it blocks 
+		//	xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);	// it blocks 
 			command[i] = ch;
 		}
 		command[(int)length] = 0x00;
@@ -52,8 +54,8 @@ void handle_package(char *command, char mode)
 	case UPDATE_MODE:{	//Remote app sends updated vars
 			int string_i = 0;
 			int length = strlen(command);
-			char *index;
-			char *val;
+			char index[10] ;
+			char val[10];
 			while (string_i < length) {
 				string_i += get_word(index, (command + string_i));
 				string_i += get_word(val, (command + string_i));

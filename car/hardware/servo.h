@@ -1,10 +1,6 @@
 #ifndef SERVO_H_
 #define SERVO_H_
 
-/* FreeRTOS includes */
-#include <FreeRTOS.h>
-#include <task.h>
-
 /* STM32 includes */
 #include <stm32f10x.h>
 #include <stm32f10x_conf.h>
