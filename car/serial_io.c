@@ -3,8 +3,8 @@
 #include "common.h"
 #include "tprintf.h"
 
-//#include "FreeRTOS.h"
-//#include "queue.h"
+#include "FreeRTOS.h"
+#include "queue.h"
 
 #include <string.h>
 
@@ -12,8 +12,8 @@
 #include "servo.h"
 #endif
 
-//extern xQueueHandle tprintf_queue;
-//extern xQueueHandle uart_receive_queue;
+extern xQueueHandle tprintf_queue;
+extern xQueueHandle uart_receive_queue;
 
 #ifndef USE_TERMINAL
 static void handle_package(char *command, char mode);
@@ -31,10 +31,11 @@ void serial_task(void *pvParameters)	//remote_command_task
 	status_init();
 
 	for (;;) {
-	//	xQueueReceive(uart_receive_queue, &length, portMAX_DELAY);	// get length
-	//	xQueueReceive(uart_receive_queue, &mode, portMAX_DELAY);	// mode 
+		/* get length and mode */
+		xQueueReceive(uart_receive_queue, &length, portMAX_DELAY);
+		xQueueReceive(uart_receive_queue, &mode, portMAX_DELAY);	
 		for (int i = 0; i < (unsigned int) length; i++) {
-		//	xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);	// it blocks 
+			xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);	
 			command[i] = ch;
 		}
 		command[(int)length] = 0x00;
@@ -57,7 +58,7 @@ void handle_package(char *command, char mode)
 			char index[10] ;
 			char val[10];
 			while (string_i < length) {
-				string_i += get_word(index, (command + string_i));
+				string_i += get_word(index, (command+string_i));
 				string_i += get_word(val, (command + string_i));
 				status_update_var(atoi(index), atoi(val));
 			}
@@ -114,6 +115,26 @@ void debug_msg(char *msg)
 
 #else
 
+int add_cmd(char *cmd_name, void (*func) (char *args));
+int parse_cmd(char *cmd);
+void cmd_help(char *args);
+void cmd_status(char *args);
+void cmd_servo_cal(char *args);
+void cmd_servo(char *args);
+
+struct cmd {
+	void (*func) (char *args);
+	char *name;
+	void *next;
+};
+static int nr_of_cmds;
+static struct cmd *first_cmd;
+
+char *get_word(const char *string);
+char *skip_word(char *string);
+
+//char *args is <cmd_name> <arg1> <arg2> ...
+
 void debug_msg(char *msg)
 {
 	tprintf("DEBUG: ");
@@ -137,7 +158,7 @@ void serial_task(void *pvParameters)	//term-task
 
 	tprintf("\n$");
 	for (;;) {
-		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);	// it blocks 
+		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY); //blocks
 		switch (ch) {
 		case '\b':
 			if (crrnt_cmd_i > 0) {
@@ -166,19 +187,6 @@ void serial_task(void *pvParameters)	//term-task
 		}
 	}
 }
-
-struct cmd {
-	void (*func) (char *args);
-	char *name;
-	void *next;
-};
-static int nr_of_cmds;
-static struct cmd *first_cmd;
-
-char *get_word(const char *string);
-char *skip_word(char *string);
-
-//char *args is <cmd_name> <arg1> <arg2> ...
 
 void cmd_help(char *args)
 {

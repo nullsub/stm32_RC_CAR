@@ -2,12 +2,9 @@
 #include <string.h> // memcpy
 
 /* STM32 includes */
-#include <stm32f10x.h>
-#include <stm32f10x_conf.h>
 #include <FreeRTOS.h>
 #include "semphr.h"
 #include "task.h"
-
 
 #define TIME_100_US 	15	//0.1ms timer value
 #define TIME_1_MS 	TIME_100_US*10	//1ms timer value

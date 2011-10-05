@@ -2,7 +2,7 @@
 #include "servo.h"
 #include "common.h"
 
-struct car_val steering;
+static struct car_val steering;
 static struct car_val accel;
 static struct car_val lights;
 static struct car_val debug;
