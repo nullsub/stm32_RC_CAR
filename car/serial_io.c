@@ -15,11 +15,14 @@
 extern xQueueHandle tprintf_queue;
 extern xQueueHandle uart_receive_queue;
 
+static int get_word(char *buffer, char *source, int length);
+
 #ifndef USE_TERMINAL
 static void handle_package(char *command, char mode);
 static void send_all_vals();
-static int get_word(char *buffer, char *source);
 static void send_package(char *command, char mode);
+
+#define ARG_LENGTH 7 //length of arg
 
 void serial_task(void *pvParameters)	//remote_command_task
 {
@@ -55,31 +58,20 @@ void handle_package(char *command, char mode)
 	case UPDATE_MODE:{	//Remote app sends updated vars
 			int string_i = 0;
 			int length = strlen(command);
-			char index[10] ;
-			char val[10];
+			char index[ARG_LENGTH] ;
+			char val[ARG_LENGTH];
 			while (string_i < length) {
-				string_i += get_word(index, (command+string_i));
-				string_i += get_word(val, (command + string_i));
+				string_i += get_word(index, (command+string_i), ARG_LENGTH);
+				string_i += get_word(val, (command + string_i), ARG_LENGTH);
 				status_update_var(atoi(index), atoi(val));
 			}
 		}
 		break;
+	default: 
+		debug_msg("unknown mode!");
+		break;
 	}
 	return;
-}
-
-int get_word(char *buffer, char *source) // merge with the TERMINALs implementation... TODO: FIXME
-{
-	char *source_start = source;
-	while (*source == ' ')
-		source += sizeof(char);
-	while (*source != 0x00 && *source != ' ') {
-		*buffer = *source;
-		buffer += sizeof(char);
-		source += sizeof(char);
-	}
-	*buffer = 0x00;
-	return (int)(source - source_start);
 }
 
 void send_all_vals()
@@ -127,13 +119,9 @@ struct cmd {
 	char *name;
 	void *next;
 };
+
 static int nr_of_cmds;
 static struct cmd *first_cmd;
-
-char *get_word(const char *string);
-char *skip_word(char *string);
-
-//char *args is <cmd_name> <arg1> <arg2> ...
 
 void debug_msg(char *msg)
 {
@@ -219,22 +207,23 @@ void cmd_servo_cal(char *args)
 	tprintf("postion set as middle position\n");
 }
 
+//char *args is <cmd_name> <arg1> <arg2> ...
+#define ARG_LENGTH 15 //length of arg
+
 void cmd_servo(char *args)
 {
-	char *arg1;
-	char *arg2;
+	char arg1[ARG_LENGTH];
+	char arg2[ARG_LENGTH];
 
-	args = skip_word(args);
-	arg1 = get_word(args);
-	if (arg1 == NULL) {
+	int length = get_word(arg1, args, ARG_LENGTH); //get the cmd_name... not needed
+	length += get_word(arg1, (args+length), ARG_LENGTH);
+	if (!*arg1) {
 		tprintf("wrong args\n");
 		return;
 	}
 
-	args = skip_word(args);
-	arg2 = get_word(args);
-	if (arg2 == NULL) {
-		vPortFree(arg1);
+	length = get_word(arg2, (args+length), ARG_LENGTH);
+	if (!*arg2) {
 		tprintf("wrong args\n");
 		return;
 	}
@@ -255,58 +244,15 @@ void cmd_servo(char *args)
 		servo_nr = 99;
 	}
 	servo_set(servo_val, servo_nr);
-
-	vPortFree(arg1);
-	vPortFree(arg2);
-}
-
-char *skip_word(char *string)
-{
-	while (*string == ' ')
-		string++;
-
-	while (*string != ' ') {
-		if (*string == 0x00)
-			return NULL;
-		string++;
-	}
-	return string;
-}
-
-char *get_word(const char *string)
-{
-	if (string == NULL)
-		return NULL;
-
-	//omit leading space
-	char *start = (char *)string;
-	while (*start == ' ')
-		start++;
-	if (strlen(start) < 1) {
-		return NULL;
-	}
-	//find end
-	int length = 0;
-	while (*(start + sizeof(char) * length) != 0x00
-	       && *(start + sizeof(char) * length) != ' ')
-		length++;
-	if (length < 1) {
-		return NULL;
-	}
-
-	char *word = (char *)pvPortMalloc(length + 1);
-	strncpy(word, start, length);
-	word[length] = 0x00;
-	return word;
 }
 
 int parse_cmd(char *cmd)
 {
-	char *cmd_name;
+	char cmd_name[ARG_LENGTH];
 
 	// get command name
-	cmd_name = get_word(cmd);
-	if (cmd_name == NULL) {
+	int length = get_word(cmd_name, cmd, ARG_LENGTH);
+	if (length == 0) {
 		return -1;
 	}
 	//get command function
@@ -314,13 +260,10 @@ int parse_cmd(char *cmd)
 	for (int i = 0; i < nr_of_cmds; i++) {
 		if (strcmp(cmd_name, crrnt_cmd->name) == 0) {
 			crrnt_cmd->func(cmd);
-			vPortFree(cmd_name);
 			return 0;
 		}
 		crrnt_cmd = crrnt_cmd->next;
 	}
-
-	vPortFree(cmd_name);
 	return -1;
 }
 
@@ -356,3 +299,19 @@ int add_cmd(char *cmd_name, void (*func) (char *args))
 	return 0;
 }
 #endif				// USE_TERMINAL
+
+int get_word(char *buffer, char *source, const int length)
+{
+	int currnt_length = 0;
+	while (*source == ' ')
+		source += sizeof(char);
+	while (*source != 0x00 && *source != ' ' && currnt_length < length) {
+		*buffer = *source;
+		buffer += sizeof(char);
+		source += sizeof(char);
+		currnt_length ++;
+	}
+	*buffer = 0x00;
+	return  currnt_length;
+}
+
