@@ -29,7 +29,7 @@ DEBUG ?= YES
 
 # Set to YES when the serial connection is a text terminal. 
 # Set to NO  when remote-controlling apps will connect */
-USE_TERMINAL ?= NO
+USE_TERMINAL ?= YES 
 
 # Toolchain prefix (i.e arm-elf- -> arm-elf-gcc.exe)
 TCHAIN_PREFIX = arm-none-eabi-
@@ -90,10 +90,8 @@ SRC += $(HARDWAREDIR)/temperature.c
 
 ## COMMON:
 SRC += $(COMMONDIR)/common.c
-ifeq ($(DEBUG),YES)
 SRC += $(COMMONDIR)/fault.c
 SRC += $(COMMONDIR)/tprintf.c
-endif
 
 ## CMSIS for STM32
 SRC += $(CMSISDIR)/CoreSupport/core_cm3.c
@@ -212,12 +210,7 @@ endif
 # 0 = turn off optimization. s = optimize for size.
 # (Note: 3 is not always the best optimization level. See avr-libc FAQ.)
 
-ifeq ($(DEBUG),YES)
-CDEFS += -DDEBUG
 OPT = 0
-else
-OPT = s
-endif
 
 # Place project-specific -D and/or -U options for
 # Assembler with preprocessor here.

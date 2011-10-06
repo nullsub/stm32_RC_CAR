@@ -10,8 +10,6 @@ for compiling the stm32 arm code I used the sat[1] toolchain on a fedora machine
 [1]https://github.com/esden/summon-arm-toolchain
 
 
-
-
 Remote Cotrolling protocol:
 A package consists of:
 [length] + [mode] + [plaintext ascii command/message]

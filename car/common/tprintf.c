@@ -33,6 +33,7 @@
 
 unsigned char outbyte(unsigned char ch);
 
+#ifdef USE_TERMINAL
 static void printchar(char **str, int c)
 {
 	if (str) {
@@ -218,6 +219,7 @@ int tsnprintf(char *out, unsigned int count, const char *format, ...)
 	va_start(args, format);
 	return print(&out, format, args);
 }
+#endif //USE_TERMINAL
 
 int data_out(char *data, int cnt)
 {
@@ -226,3 +228,4 @@ int data_out(char *data, int cnt)
 	}
 	return cnt;
 }
+

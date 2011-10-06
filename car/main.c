@@ -41,8 +41,8 @@
 
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
-#define TPRINTF_QUEUE_SIZE	64
-#define RECEIVE_QUEUE_SIZE 	42
+#define UART_SEND_QUEUE_SIZE	64
+#define UART_RECEIVE_QUEUE_SIZE 	42
 
 /* Function Prototypes */
 static void setup_rcc(void);
@@ -55,22 +55,20 @@ static void main_noreturn(void) NORETURN;
 static void button_task(void *pvParameters) NORETURN;
 static void startup_task(void *pvParameters) NORETURN;
 
-extern void serial_task(void *pvParameters) NORETURN;	// defined in serial-io
-
 static void setup(void);
 
 static void blink_toggle_blue(void);
 static void blink_toggle_green(void);
 
+xQueueHandle uart_send_queue;
+xQueueHandle uart_receive_queue;
+
+static xSemaphoreHandle debounce_sem;
+
 enum button_state {
 	BUTTON_STATE_UP,
 	BUTTON_STATE_DOWN
 };
-
-xQueueHandle tprintf_queue;
-xQueueHandle uart_receive_queue;
-
-static xSemaphoreHandle debounce_sem;
 
 static enum button_state button_state;
 static uint8_t led_blue = 1;
@@ -79,7 +77,7 @@ static uint8_t led_green = 1;
 unsigned char outbyte(unsigned char ch)
 {
 	/* Enable USART TXE interrupt */
-	xQueueSendToBack(tprintf_queue, &ch, portMAX_DELAY);	//blocks!
+	xQueueSendToBack(uart_send_queue, &ch, portMAX_DELAY);	//blocks!
 	USART_ITConfig(USART1, USART_IT_TXE, ENABLE);
 	return ch;
 }
@@ -120,11 +118,11 @@ inline void main_noreturn(void)
 
 void startup_task(void *pvParameters)
 {
-	tprintf_queue = xQueueCreate(TPRINTF_QUEUE_SIZE, sizeof(unsigned char));
-	assert_param(tprintf_queue);
+	uart_send_queue = xQueueCreate(UART_SEND_QUEUE_SIZE, sizeof(unsigned char));
+	assert_param(uart_send_queue);
 
 	uart_receive_queue =
-	    xQueueCreate(RECEIVE_QUEUE_SIZE, sizeof(unsigned char));
+	    xQueueCreate(UART_RECEIVE_QUEUE_SIZE, sizeof(unsigned char));
 	assert_param(uart_receive_queue);
 
 	vSemaphoreCreateBinary(debounce_sem);
@@ -291,7 +289,7 @@ void usart1_isr(void)
 	unsigned char ch;
 
 	if (USART_GetITStatus(USART1, USART_IT_TXE) != RESET) {
-		if (xQueueReceiveFromISR(tprintf_queue, &ch, &task_woken))
+		if (xQueueReceiveFromISR(uart_send_queue, &ch, &task_woken))
 			USART_SendData(USART1, ch);
 		else
 			USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
@@ -343,10 +341,8 @@ void button_task(void *pvParameters)
 			if (button_state == BUTTON_STATE_UP && button) {
 				button_state = BUTTON_STATE_DOWN;
 				blink_toggle_blue();
-				//tprintf("button press\r\n");
 			} else if (button_state == BUTTON_STATE_DOWN && !button) {
 				button_state = BUTTON_STATE_UP;
-				//tprintf("button release\r\n");
 			}
 
 			debounce = 0;

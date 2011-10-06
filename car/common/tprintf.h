@@ -35,13 +35,8 @@ int data_out(void *data_to_write, int nr_of_bytes);
  * @retval On success, the total number of characters written is returned.
  *         On failure, a negative number is returned.
  */
-#ifdef DEBUG
+#ifdef USE_TERMINAL
 int tprintf(const char *format, ...);
-#else
-inline int tprintf(const char *format, ...)
-{
-	return 0;
-}
 #endif
 
 /**
@@ -51,13 +46,8 @@ inline int tprintf(const char *format, ...)
  * @retval On success, the total number of characters written is returned.
  *         On failure, a negative number is returned.
  */
-#ifdef DEBUG
+#ifdef USE_TERMINAL
 int tsprintf(char *out, const char *format, ...);
-#else
-inline int tsprintf(char *out, const char *format, ...)
-{
-	return 0;
-}
 #endif
 
 /**
@@ -68,13 +58,8 @@ inline int tsprintf(char *out, const char *format, ...)
  * @retval On success, the total number of characters written is returned.
  *         On failure, a negative number is returned.
  */
-#ifdef DEBUG
+#ifdef USE_TERMINAL
 int tsnprintf(char *out, unsigned int count, const char *format, ...);
-#else
-inline int tsnprintf(char *out, unsigned int count, const char *format, ...)
-{
-	return 0;
-}
 #endif
 
 #endif				/* TPRINTF_H */

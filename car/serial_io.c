@@ -12,7 +12,6 @@
 #include "servo.h"
 #endif
 
-extern xQueueHandle tprintf_queue;
 extern xQueueHandle uart_receive_queue;
 
 static int get_word(char *buffer, char *source, int length);
