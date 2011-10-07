@@ -23,6 +23,15 @@ static void send_package(char *command, char mode);
 
 #define ARG_LENGTH 7 //length of arg
 
+/*
+Remote Cotrolling protocol:
+A package consists of:
+[length] + [mode] + [plaintext ascii command/message]
+where length and mode are one byte. Length may be 0!
+for the standart UPDATE_MODE package, the message text consinst of:
+[index_for_var_a][a_space][value_for_var_a][a_space].....up to a length of 255bytes!
+*/
+
 void serial_task(void *pvParameters)	//remote_command_task
 {
 	char command[MAX_COMMAND_LENGTH];
