@@ -5,14 +5,20 @@ The goal of this rc-car project is to control an rc-car over ethernet by a pc/sm
 ./remote_control this folder contains the remote controlling apps. the Main app for linux is written in Python using PyGtk for the gui 
 
 
-for compiling the stm32 arm code I used the sat[1] toolchain on a fedora machine.
+Toolchain:
+        https://github.com/esden/summon-arm-toolchain
 
-[1]https://github.com/esden/summon-arm-toolchain
+flasher and debugger:
+        https://github.com/texane/stlink
+
+software & Freertos template:
+        https://github.com/doceme/stm32_template
 
 
-Remote Cotrolling protocol:
-A package consists of:
-[length] + [mode] + [plaintext ascii command/message]
-where length and mode are one byte. Length may be 0!
-for the standart UPDATE_MODE package, the message text consinst of:
-[index_for_var_a][a_space][value_for_var_a][a_space].....up to a length of 255bytes!
+Infos:
+http://www.emcu.it/STM32.html
+https://github.com/texane/stlink   // gdb server and flasher
+http://gostm32.blogspot.com/2010/09/installing-gnu-arm-toolkit.html
+http://stm32.spacevs.com/
+http://code.google.com/p/stm32flash/source/checkout
+http://fun-tech.se/stm32/gcc/index.php
