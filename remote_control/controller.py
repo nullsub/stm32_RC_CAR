@@ -1,5 +1,12 @@
 #!/usr/bin/env python
-#Remote Cotnroller for the STM rc-car 
+#Remote Controller for the STM rc-car 
+
+#Remote Cotrolling protocol:
+#A package consists of:
+#[length] + [mode] + [plaintext ascii command/message]
+#where length and mode are one byte. Length may be 0!
+#for the standart UPDATE_MODE package, the message text consinst of:
+#[index_for_var_a][a_space][value_for_var_a][a_space].....up to a length of 255bytes!
 
 import pygtk
 pygtk.require('2.0')
