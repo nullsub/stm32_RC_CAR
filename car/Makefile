@@ -28,8 +28,8 @@
 DEBUG ?= YES
 
 # Set to YES when the serial connection is a text terminal. 
-# Set to NO  when remote-controlling apps will connect */
-USE_TERMINAL ?= YES 
+# Comment out when remote-controlling apps will connect */
+#USE_TERMINAL ?= YES 
 
 # Toolchain prefix (i.e arm-elf- -> arm-elf-gcc.exe)
 TCHAIN_PREFIX = arm-none-eabi-
@@ -86,7 +86,7 @@ SRC += car_status.c
 
 #Hardware
 SRC += $(HARDWAREDIR)/servo.c
-SRC += $(HARDWAREDIR)/temperature.c
+#SRC += $(HARDWAREDIR)/temperature.c
 
 ## COMMON:
 SRC += $(COMMONDIR)/common.c
@@ -205,7 +205,9 @@ CDEFS += -D$(SYSCLOCK_CL)
 ifneq ($(STACK_SIZE),)
 CDEFS += -DSTACK_SIZE=$(STACK_SIZE)
 endif
-
+ifneq ($(USE_TERMINAL),)
+CDEFS += -DUSE_TERMINAL
+endif
 # Optimization level, can be [0, 1, 2, 3, s].
 # 0 = turn off optimization. s = optimize for size.
 # (Note: 3 is not always the best optimization level. See avr-libc FAQ.)
@@ -237,10 +239,6 @@ CSTANDARD = -std=gnu99
 
 ifeq ($(DEBUG),YES)
 CFLAGS = -g$(DEBUGF)
-endif
-
-ifeq ($(USE_TERMINAL),YES)
-CFLAGS += -DUSE_TERMINAL
 endif
 
 CFLAGS += -O$(OPT)
