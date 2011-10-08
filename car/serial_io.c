@@ -45,6 +45,10 @@ void serial_task(void *pvParameters)	//remote_command_task
 		/* get length and mode */
 		xQueueReceive(uart_receive_queue, &length, portMAX_DELAY);
 		xQueueReceive(uart_receive_queue, &mode, portMAX_DELAY);	
+		if(length >= MAX_COMMAND_LENGTH) {
+			length = MAX_COMMAND_LENGTH-1;
+			debug_msg("length is too long")
+		}
 		for (int i = 0; i < (unsigned int) length; i++) {
 			xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);	
 			command[i] = ch;
