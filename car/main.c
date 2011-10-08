@@ -41,8 +41,8 @@
 
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
-#define UART_SEND_QUEUE_SIZE	64
-#define UART_RECEIVE_QUEUE_SIZE 	42
+#define UART_SEND_QUEUE_SIZE	16
+#define UART_RECEIVE_QUEUE_SIZE 16
 
 /* Function Prototypes */
 static void setup_rcc(void);
@@ -95,17 +95,7 @@ inline void main_noreturn(void)
 	xTaskHandle task;
 
 	xTaskCreate(startup_task, (signed portCHAR *)"startup",
-		    configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 5,
-		    &task);
-	assert_param(task);
-
-	xTaskCreate(serial_task, (signed portCHAR *)"serial",
-		    configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1,
-		    &task);
-	assert_param(task);
-
-	xTaskCreate(button_task, (signed portCHAR *)"button",
-		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1,
+		    configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 2,
 		    &task);
 	assert_param(task);
 
@@ -133,6 +123,18 @@ void startup_task(void *pvParameters)
 	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);	//enable receiving.
 
 	servo_init();
+	
+	xTaskHandle task;
+
+	xTaskCreate(serial_task, (signed portCHAR *)"serial",
+		    configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1,
+		    &task);
+	assert_param(task);
+
+	xTaskCreate(button_task, (signed portCHAR *)"button",
+		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1,
+		    &task);
+	assert_param(task);
 
 	vTaskDelete(NULL);
 	for (;;) ;
@@ -323,8 +325,6 @@ void button_task(void *pvParameters)
 {
 	portTickType delay = portMAX_DELAY;
 	uint8_t debounce = 0;
-
-	vTaskDelay(2000 / portTICK_RATE_MS);	// dont remooove, RACE CONDITION! :)
 
 	blink_toggle_blue();
 
