@@ -95,14 +95,13 @@ inline void main_noreturn(void)
 	xTaskHandle task;
 
 	xTaskCreate(startup_task, (signed portCHAR *)"startup",
-		    configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 2,
+		    configMINIMAL_STACK_SIZE * 1, NULL, tskIDLE_PRIORITY + 2,
 		    &task);
 	assert_param(task);
 
 	/* Start the FreeRTOS scheduler */
 	vTaskStartScheduler();
 	assert_param(NULL);
-
 	while (1) ;
 }
 
@@ -119,20 +118,20 @@ void startup_task(void *pvParameters)
 	assert_param(debounce_sem);
 
 	setup();
+	servo_init();
+	serial_init();
 
 	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);	//enable receiving.
-
-	servo_init();
 	
 	xTaskHandle task;
 
 	xTaskCreate(serial_task, (signed portCHAR *)"serial",
-		    configMINIMAL_STACK_SIZE * 2, NULL, tskIDLE_PRIORITY + 1,
+		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1,
 		    &task);
 	assert_param(task);
 
 	xTaskCreate(button_task, (signed portCHAR *)"button",
-		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1,
+		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2,
 		    &task);
 	assert_param(task);
 
@@ -231,7 +230,7 @@ void setup_usart(void)
 {
 	USART_InitTypeDef usart_init;
 
-	usart_init.USART_BaudRate = 115200;
+	usart_init.USART_BaudRate = 9600;
 	usart_init.USART_WordLength = USART_WordLength_8b;
 	usart_init.USART_StopBits = 1;
 	usart_init.USART_Parity = USART_Parity_No;
@@ -299,7 +298,6 @@ void usart1_isr(void)
 	if (USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {
 		ch = USART_ReceiveData(USART1);
 		xQueueSendFromISR(uart_receive_queue, &ch, &task_woken);
-
 		//USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);
 	}
 	portEND_SWITCHING_ISR(task_woken);
@@ -341,8 +339,10 @@ void button_task(void *pvParameters)
 			if (button_state == BUTTON_STATE_UP && button) {
 				button_state = BUTTON_STATE_DOWN;
 				blink_toggle_blue();
+				debug_msg("bprssd");
 			} else if (button_state == BUTTON_STATE_DOWN && !button) {
 				button_state = BUTTON_STATE_UP;
+				debug_msg("brlsd");
 			}
 
 			debounce = 0;
