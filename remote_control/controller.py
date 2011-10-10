@@ -101,7 +101,7 @@ class communication():
 			return False
 		length = len(data)
 		if length < 0 or length > 255:
-			print "data has length" ,length
+			print "Error length:" ,length
 			return False
 		if mode != UPDATE and mode != REQUEST and mode != DEBUG :
 			print "unknown mode ", mode
@@ -389,10 +389,10 @@ class main:
 	def do_action(self, the_state, value):
 		global my_state_vals
 		global my_states
-		if value == 0:
-			print "released"
-		else:
-			print "pressed"
+#		if value == 0:
+			#print "released"
+#		else:
+			#print "pressed"
 		if the_state == "forward":
 			if value == 0: 
 				value = 128 # stop
@@ -438,9 +438,9 @@ class main:
 			data += " "
 			data += "{val} ".format(val = my_state_vals[i])
 			i += 1
-		print data
-		self.car.send_packet(data, UPDATE)		
-		self.car.send_packet(data, DEBUG)		
+		#self.car.send_packet(data, UPDATE)		
+		#self.car.send_packet(data, DEBUG)		
+		self.car.send_packet("hallo:)", DEBUG)		
 		return
 	
 # If the program is run directly or passed as an argument to the python
