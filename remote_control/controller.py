@@ -19,9 +19,9 @@ import array
 
 global sock
 
-UPDATE = 0
-REQUEST = 1
-DEBUG = 2
+UPDATE = 1
+REQUEST = 2
+DEBUG = 0
 
 my_states_index = [ "0" ,   "1"   , "2"  ,  "3"   ,]
 my_states = ["steering", "accel","lights", "debug",]
@@ -95,10 +95,12 @@ class communication():
 		return True
 
 	def send_packet(self, data, mode):
+		global sock
 		if self.connected == False:
+			print "not connected"
 			return False
 		length = len(data)
-		if length <= 0 or length > 255:
+		if length < 0 or length > 255:
 			print "data has length" ,length
 			return False
 		if mode != UPDATE and mode != REQUEST and mode != DEBUG :
@@ -138,10 +140,9 @@ class receive_thread(threading.Thread):
 	
 	def handle_package(self, mode, data):	
 		if mode == DEBUG:
-			print "its debug:"
 			print data
 			return True
-		if mode == UPDATE:
+		elif mode == UPDATE:
 			var_list = data.split()
 			length = len(var_list) 	
 			i = 0
@@ -149,19 +150,26 @@ class receive_thread(threading.Thread):
 				if set_car_stats(var_list[i],int(var_list[i+1]))== False:
 					print "unknown var in Package update"
 				i += 2
-			glib.idle_add(stuff_box.temp.set_label,"{temp} Degrees C" .format(temp = get_car_stats("temp")))
-			glib.idle_add(stuff_box.speed.set_label,"{speed} Km/h" .format(speed = get_car_stats("speed")))
-			glib.idle_add(stuff_box.battery.set_fraction, float(float(get_car_stats("battery"))/float(100)))	
-			glib.idle_add(stuff_box.sig_strength.set_fraction, float(float(get_car_stats("signal"))/float(100)))	
+
+			glib.idle_add(stuff_box.temp.set_label,
+				"{temp} Degrees C" .format(temp = get_car_stats("temp")))
+			glib.idle_add(stuff_box.speed.set_label,
+				"{speed} Km/h" .format(speed = get_car_stats("speed")))
+			glib.idle_add(stuff_box.battery.set_fraction, 
+				float(float(get_car_stats("battery"))/float(100)))	
+			glib.idle_add(stuff_box.sig_strength.set_fraction, 
+				float(float(get_car_stats("signal"))/float(100)))	
 		elif mode == REQUEST:
 			print "request" 
 		else :
 			print "unknown mode"
 			return False
 		return True
+
 	def __init__(self):
        	 	super(receive_thread, self).__init__()
        	 	self._stop_receive = threading.Event()
+		return
 		
 	def stop(self):
 		self._stop_receive.set()
@@ -312,7 +320,7 @@ class main:
 				if self.car.disconnect() == True:
 					widget.set_label(" Connect ")
 			else:
-				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 12345) == True :
+				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 2005) == True :
 					widget.set_label("Disconnect")
 
 	up_clicked = 0
@@ -432,6 +440,7 @@ class main:
 			i += 1
 		print data
 		self.car.send_packet(data, UPDATE)		
+		self.car.send_packet(data, DEBUG)		
 		return
 	
 # If the program is run directly or passed as an argument to the python
