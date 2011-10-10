@@ -4,6 +4,7 @@
 #include "tprintf.h"
 
 #include "FreeRTOS.h"
+#include "semphr.h"
 #include "queue.h"
 
 #include <string.h>
@@ -17,9 +18,9 @@ extern xQueueHandle uart_receive_queue;
 static int get_word(char *buffer, char *source, int length);
 
 #ifndef USE_TERMINAL
-static void handle_package(char *command, char mode);
+static void handle_package(char *command, unsigned char mode);
 static void send_all_vals();
-static void send_package(char *command, char mode);
+static void send_package(char *data, unsigned char mode);
 
 #define ARG_LENGTH 7 //length of arg
 
@@ -31,23 +32,30 @@ where length and mode are one byte. Length may be 0!
 for the standart UPDATE_MODE package, the message text consinst of:
 [index_for_var_a][a_space][value_for_var_a][a_space].....up to a length of 255bytes!
 */
+static xSemaphoreHandle send_mutex;
+static xSemaphoreHandle debug_msg_mutex;
+
+void serial_init()
+{
+	send_mutex = xSemaphoreCreateMutex();
+	debug_msg_mutex = xSemaphoreCreateMutex();
+	status_init();
+}
 
 void serial_task(void *pvParameters)	//remote_command_task
 {
 	char command[MAX_COMMAND_LENGTH];
-	char length = 0;
+	unsigned char length = 0;
 	char mode = 0;
 	char ch;
-
-	status_init();
-
+	
 	for (;;) {
 		/* get length and mode */
 		xQueueReceive(uart_receive_queue, &length, portMAX_DELAY);
 		xQueueReceive(uart_receive_queue, &mode, portMAX_DELAY);	
 		if(length >= MAX_COMMAND_LENGTH) {
 			length = MAX_COMMAND_LENGTH-1;
-			debug_msg("length is too long")
+			debug_msg("length is too long");
 		}
 		for (int i = 0; i < (unsigned int) length; i++) {
 			xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);	
@@ -58,14 +66,15 @@ void serial_task(void *pvParameters)	//remote_command_task
 	}
 }
 
-void handle_package(char *command, char mode)
+void handle_package(char *command, unsigned char mode)
 {
+	debug_msg("packet.");
 	switch (mode) {
 	case DEBUG_MODE:
-		debug_msg("debug mode enabled");
+		debug_msg("debugE");
 		break;
 	case REQUEST_MODE:	// remote app requests vars.
-		send_all_vals();
+		//send_all_vals();
 		break;
 	case UPDATE_MODE:{	//Remote app sends updated vars
 			int string_i = 0;
@@ -80,7 +89,7 @@ void handle_package(char *command, char mode)
 		}
 		break;
 	default: 
-		debug_msg("unknown mode!");
+		debug_msg("unknown mode_DEV!");
 		break;
 	}
 	return;
@@ -88,33 +97,40 @@ void handle_package(char *command, char mode)
 
 void send_all_vals()
 {
-	char command[MAX_COMMAND_LENGTH];
+/*	char command[MAX_COMMAND_LENGTH];
 	status_get_var_str(command);
 	debug_msg("send_all_vals: package is");
 	debug_msg(command);
 	send_package(command, UPDATE_MODE);
+*/
 }
 
-void send_package(char *command, char mode)
+void send_package(char *data, unsigned char mode)
 {
 	if (mode != DEBUG_MODE && mode != UPDATE_MODE && mode != REQUEST_MODE) {
 		debug_msg("unknown mode in send_package");
 		return;
 	}
-	if (strlen(command) > 255) {
-		debug_msg("command to long in send_package");
+	unsigned int length_i = strlen(data);
+	if (length_i > 255) {
+		debug_msg("data to long in send_package");
+		return;
 	}
-	char length = strlen(command);
+	xSemaphoreTake(send_mutex, portMAX_DELAY);	
+	unsigned char length = (unsigned char)length_i; 
 	data_out(&length, 1);
 	data_out(&mode, 1);
-	data_out(command, length);
+	data_out(data, length_i);
+	xSemaphoreGive(send_mutex);
 }
 
 void debug_msg(char *msg)
 {
+	xSemaphoreTake(debug_msg_mutex, portMAX_DELAY);	
 	send_package("DEBUG: ", DEBUG_MODE);
 	send_package(msg, DEBUG_MODE);
 	send_package("\n", DEBUG_MODE);
+	xSemaphoreGive(debug_msg_mutex);	
 }
 
 #else
@@ -140,6 +156,11 @@ void debug_msg(char *msg)
 	tprintf("DEBUG: ");
 	tprintf(msg);
 	tprintf("\n");
+}
+
+void serial_init()
+{
+
 }
 
 void serial_task(void *pvParameters)	//term-task
@@ -203,7 +224,7 @@ void cmd_status(char *args)
 	int free_heap = xPortGetFreeHeapSize();
 	tprintf("Free Heap: %i of %i bytes used; %i%% full\n",
 		free_heap, configTOTAL_HEAP_SIZE,
-		((100 - free_heap) * 100) / configTOTAL_HEAP_SIZE);
+		((free_heap*100)/configTOTAL_HEAP_SIZE));
 	//peripherals
 	tprintf("%i Servo(s) are connected, Middle Value is %i\n", NR_OF_SERVOS,
 		SERVO_MIDDLE);
