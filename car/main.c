@@ -41,7 +41,7 @@
 
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
-#define UART_SEND_QUEUE_SIZE	16
+#define UART_SEND_QUEUE_SIZE	32 
 #define UART_RECEIVE_QUEUE_SIZE 16
 
 /* Function Prototypes */
