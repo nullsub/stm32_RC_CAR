@@ -11,9 +11,9 @@ void serial_task(void *pvParameters) NORETURN;
 #define TERM_CMD_LENGTH		20
 #else
 #define MAX_COMMAND_LENGTH	20
-#define DEBUG_MODE	0
-#define UPDATE_MODE	1
-#define REQUEST_MODE	2
+#define DEBUG_MODE	'0'
+#define UPDATE_MODE	'1'
+#define REQUEST_MODE	'2'
 #endif				// USE_TERMINAL
 
 #endif				// SERIAL_IO_H_

@@ -45,41 +45,44 @@ void serial_init()
 void serial_task(void *pvParameters)	//remote_command_task
 {
 	char command[MAX_COMMAND_LENGTH];
-	unsigned char length = 0;
-	char mode = 0;
-	char ch;
+	char length_str[4];
+	unsigned char length;
+	unsigned char mode;
+	unsigned char ch;
 	
 	for (;;) {
 		/* get length and mode */
-		xQueueReceive(uart_receive_queue, &length, portMAX_DELAY);
+		xQueueReceive(uart_receive_queue, &length_str[0], portMAX_DELAY);
+		xQueueReceive(uart_receive_queue, &length_str[1], portMAX_DELAY);
+		xQueueReceive(uart_receive_queue, &length_str[2], portMAX_DELAY);
 		xQueueReceive(uart_receive_queue, &mode, portMAX_DELAY);	
+		length = atoi(length_str);
 		if(length >= MAX_COMMAND_LENGTH) {
 			length = MAX_COMMAND_LENGTH-1;
 			debug_msg("length is too long");
 		}
-		for (int i = 0; i < (unsigned int) length; i++) {
+		for (unsigned char i = 0; i < length; i++) {
 			xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);	
 			command[i] = ch;
 		}
-		command[(int)length] = 0x00;
+		command[length] = 0x00;
 		handle_package(command, mode);
 	}
 }
 
 void handle_package(char *command, unsigned char mode)
 {
-	debug_msg("packet.");
 	switch (mode) {
 	case DEBUG_MODE:
-		debug_msg("debugE");
+		debug_msg("debug_mode in device");
 		break;
 	case REQUEST_MODE:	// remote app requests vars.
 		//send_all_vals();
 		break;
 	case UPDATE_MODE:{	//Remote app sends updated vars
-			int string_i = 0;
-			int length = strlen(command);
-			char index[ARG_LENGTH] ;
+			unsigned int string_i = 0;
+			unsigned int length = strlen(command);
+			char index[ARG_LENGTH];
 			char val[ARG_LENGTH];
 			while (string_i < length) {
 				string_i += get_word(index, (command+string_i), ARG_LENGTH);
@@ -89,7 +92,7 @@ void handle_package(char *command, unsigned char mode)
 		}
 		break;
 	default: 
-		debug_msg("unknown mode_DEV!");
+		debug_msg("unknown mode!");
 		break;
 	}
 	return;
@@ -116,18 +119,33 @@ void send_package(char *data, unsigned char mode)
 		debug_msg("data to long in send_package");
 		return;
 	}
-	xSemaphoreTake(send_mutex, portMAX_DELAY);	
-	unsigned char length = (unsigned char)length_i; 
-	data_out(&length, 1);
+	xSemaphoreTake(send_mutex, portMAX_DELAY);
+	vTaskDelay(20/portTICK_RATE_MS);
+	char length_str[4];
+	unsigned char length = (unsigned char)length_i;
+	if(length < 10) {
+		length_str[0] = '0';
+		length_str[1] = '0';
+		itoa(length, &length_str[2], 10);
+	}
+	else if(length < 100) {
+		length_str[0] = '0';
+		itoa(length, &length_str[1], 10);
+	}
+	else if(length < 1000) {
+		itoa(length, &length_str[0], 10);
+	}
+		
+	data_out(length_str, 3);
 	data_out(&mode, 1);
-	data_out(data, length_i);
+	data_out(data, length);
 	xSemaphoreGive(send_mutex);
 }
 
 void debug_msg(char *msg)
 {
 	xSemaphoreTake(debug_msg_mutex, portMAX_DELAY);	
-	send_package("DEBUG: ", DEBUG_MODE);
+	send_package("DEBUG", DEBUG_MODE);
 	send_package(msg, DEBUG_MODE);
 	send_package("\n", DEBUG_MODE);
 	xSemaphoreGive(debug_msg_mutex);	

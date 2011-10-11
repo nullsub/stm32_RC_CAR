@@ -19,9 +19,9 @@ import array
 
 global sock
 
-UPDATE = 1
-REQUEST = 2
-DEBUG = 0
+UPDATE = '1'
+REQUEST = '2'
+DEBUG = '0'
 
 my_states_index = [ "0" ,   "1"   , "2"  ,  "3"   ,]
 my_states = ["steering", "accel","lights", "debug",]
@@ -32,6 +32,11 @@ car_stats = ["temp", "speed", "battery", "signal",]
 car_stats_vals = [0,      0    ,     0   ,   0   ,]
 
 car_stats_lock = thread.allocate_lock()
+
+def add_nulls(num, cnt):
+	cnt = cnt - len(str(num))
+	nulls = '0' * cnt
+	return '%s%s' % (nulls, num)
 
 def set_car_stats(index, val):
 	global car_stats_vals
@@ -99,15 +104,15 @@ class communication():
 		if self.connected == False:
 			print "not connected"
 			return False
-		length = len(data)
-		if length < 0 or length > 255:
+		length  = add_nulls(len(data),3)
+		if len(data) < 0 or len(data) > 255:
 			print "Error length:" ,length
 			return False
 		if mode != UPDATE and mode != REQUEST and mode != DEBUG :
 			print "unknown mode ", mode
 			return False
-		sock.send(chr(length))
-		sock.send(chr(mode))
+		sock.send(length)
+		sock.send(mode)
 		sock.send(data)
 		return True
 
@@ -118,24 +123,29 @@ class receive_thread(threading.Thread):
 				print "ending receive" 
 				return
 			try:	
-				data = sock.recv(1) 	#length
+				data = sock.recv(3) 	#length
 			except:
 				continue
 			if len(data) == 0:
 				continue
-			length = ord(data)
+			length = int(data)
 			try:	
 				data = sock.recv(1)	#mode
 			except	:
 				print "couldnt receive packet type"
 				continue
-			mode = ord(data)
-			try: 
-				data = sock.recv(length) #data
-			except :
-				print "couldnt receive the data"
-				continue
-			self.handle_package(mode,data)
+			mode = data
+			data = ''
+			end = False
+			while len(data) < length and end == False:
+				try: 
+					data += sock.recv(length-len(data)) #data
+				except :
+					print "couldnt receive the data"
+					end = True
+					continue
+			if end != True:
+				self.handle_package(mode,data)
 		return
 	
 	def handle_package(self, mode, data):	
@@ -173,7 +183,6 @@ class receive_thread(threading.Thread):
 		
 	def stop(self):
 		self._stop_receive.set()
-
 
 # Create a button with a arrow image and a name
 def create_arrow_button(arrow_type, shadow_type, label_name):
@@ -221,7 +230,7 @@ class main:
 
 		self.options_box.remote_ip = gtk.HBox()
 		self.options_box.remote_ip.entry = gtk.Entry(15)
-		self.options_box.remote_ip.entry.set_text("127.0.0.1");
+		self.options_box.remote_ip.entry.set_text("192.168.2.11");
 		self.options_box.remote_ip.connect_button = gtk.Button(" Connect  ")
 		self.options_box.remote_ip.pack_start(self.options_box.remote_ip.entry, False, False, 13)
 		self.options_box.remote_ip.pack_start(self.options_box.remote_ip.connect_button, False, False, 3)
