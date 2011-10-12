@@ -20,8 +20,10 @@ import socket
 import threading
 import thread
 import array
+import RepeatTimer
 
 global sock
+global update_timer 
 
 UPDATE = '1'
 REQUEST = '2'
@@ -29,7 +31,7 @@ DEBUG = '0'
 
 my_states_index = [ "0" ,   "1"   , "2"  ,  "3"   ,]
 my_states = ["steering", "accel","lights", "debug",]
-my_state_vals = [ 50   ,     50  ,    0  ,    0   ,]
+my_state_vals = [ 0   ,     0  ,    0  ,    0   ,]
 
 car_stats_index = ["4", "5"   ,   "6"  ]
 car_stats = ["temp", "speed", "battery"]
@@ -78,6 +80,7 @@ class communication():
 
 	def connect(self, ip_address, port) :
 		global sock
+		global update_timer 
 		sock = socket.socket()
 		try:
 			sock.connect((ip_address, port))
@@ -91,12 +94,16 @@ class communication():
 		self.rec_thread.deamon = True
 		self.rec_thread.start()
 		self.connected = True
+		update_timer = RepeatTimer.RepeatTimer(0.25,self.update)
+		update_timer.start()
 		return True
 
 	def disconnect(self):
 		global sock
+		global update_timer 
 		if self.connected == False:
 			return True
+		update_timer.cancel()
 		self.connected = False
 		self.rec_thread.stop()
 		
@@ -104,6 +111,20 @@ class communication():
 		self.rec_thread.join()
 		sock = None
 		return True
+
+	def update(self):
+		global my_states
+		global my_state_vals
+		data = "" 
+		i = 0
+		length = len(my_state_vals)
+		while i < length:
+			data += "{state}" .format(state = my_states_index[i])
+			data += " "
+			data += "{val} ".format(val = my_state_vals[i])
+			i += 1
+		self.send_packet(data, UPDATE)
+		return
 
 	def send_packet(self, data, mode):
 		global sock
@@ -221,6 +242,7 @@ class main:
 
 	def __init__(self):
 		global stuff_box
+		global update_timer 
 		# create a new window
 		self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
 		self.window.connect("delete_event", self.delete_event)
@@ -443,23 +465,9 @@ class main:
 			tmp += 0.5 #correct rounding
 			value = int(tmp)
 		my_state_vals[my_states.index(the_state)] = value
-		self.update()
 		return
 
-	def update(self):
-		global my_states
-		global my_state_vals
-		data = " " 
-		i = 0
-		length = len(my_state_vals)
-		while i < length:
-			data += "{state}" .format(state = my_states_index[i])
-			data += " "
-			data += "{val} ".format(val = my_state_vals[i])
-			i += 1
-		print data
-		self.car.send_packet(data, UPDATE)
-		return
+
 	
 	def request_stats(self):
 		data = ''		
