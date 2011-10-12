@@ -8,6 +8,10 @@
 #for the standart UPDATE_MODE package, the message text consinst of:
 #[index_for_var_a][a_space][value_for_var_a][a_space].....up to a length of 255bytes!
 
+# set signal strength:
+# stuff_box.sig_strength.set_fraction,float(float(get_car_stats("signal"))/float(100)))	
+
+
 import pygtk
 pygtk.require('2.0')
 import gtk
@@ -27,9 +31,11 @@ my_states_index = [ "0" ,   "1"   , "2"  ,  "3"   ,]
 my_states = ["steering", "accel","lights", "debug",]
 my_state_vals = [ 50   ,     50  ,    0  ,    0   ,]
 
-car_stats_index = ["4", "5"   ,   "6"   ,   "7"  ,]
-car_stats = ["temp", "speed", "battery", "signal",]
-car_stats_vals = [0,      0    ,     0   ,   0   ,]
+car_stats_index = ["4", "5"   ,   "6"  ]
+car_stats = ["temp", "speed", "battery"]
+car_stats_vals = [0,      0    ,     0 ]
+
+signal = 0
 
 car_stats_lock = thread.allocate_lock()
 
@@ -104,19 +110,16 @@ class communication():
 		if self.connected == False:
 			print "not connected"
 			return False
-<<<<<<< HEAD
-		length  = add_nulls(len(data),3)
-		if len(data) < 0 or len(data) > 255:
-			print "Error length:" ,length
-=======
-		length = len(data)
-		if length < 0 or length > 255:
-			print "data has length" ,length
->>>>>>> parent of 7dc9646... added some debugging commands.
-			return False
+
 		if mode != UPDATE and mode != REQUEST and mode != DEBUG :
 			print "unknown mode ", mode
 			return False
+
+		length  = add_nulls(len(data),3)
+		if len(data) < 0 or len(data) > 255:
+			print "Error length:" ,length
+			return
+
 		sock.send(length)
 		sock.send(mode)
 		sock.send(data)
@@ -124,15 +127,16 @@ class communication():
 
 class receive_thread(threading.Thread):
        	def run(self): 	
+		data = ''
 		while 1:
 			if self._stop_receive.isSet():
 				print "ending receive" 
 				return
 			try:	
-				data = sock.recv(3) 	#length
+				data += sock.recv(3-len(data)) 	#length
 			except:
 				continue
-			if len(data) == 0:
+			if len(data) < 3:
 				continue
 			length = int(data)
 			try:	
@@ -140,6 +144,8 @@ class receive_thread(threading.Thread):
 			except	:
 				print "couldnt receive packet type"
 				continue
+			if len(data) == 0:
+				print "bug in app"
 			mode = data
 			data = ''
 			end = False
@@ -152,6 +158,7 @@ class receive_thread(threading.Thread):
 					continue
 			if end != True:
 				self.handle_package(mode,data)
+			data = ''
 		return
 	
 	def handle_package(self, mode, data):	
@@ -173,8 +180,6 @@ class receive_thread(threading.Thread):
 				"{speed} Km/h" .format(speed = get_car_stats("speed")))
 			glib.idle_add(stuff_box.battery.set_fraction, 
 				float(float(get_car_stats("battery"))/float(100)))	
-			glib.idle_add(stuff_box.sig_strength.set_fraction, 
-				float(float(get_car_stats("signal"))/float(100)))	
 		elif mode == REQUEST:
 			print "request" 
 		else :
@@ -324,7 +329,8 @@ class main:
 				val = 1
 			self.do_action(data,val)
 		if data == "logging" :
-			print "logging is checked"
+		#	print "logging is checked"
+			self.request_stats()
 		if data == "lights":
 			val = 0
 			if widget.get_active():
@@ -404,40 +410,38 @@ class main:
 	def do_action(self, the_state, value):
 		global my_state_vals
 		global my_states
-		if value == 0:
-			print "released"
-		else:
-			print "pressed"
-		if the_state == "forward":
-			if value == 0: 
+		if value == 0:	# released
+			if the_state == "forward":
 				value = 128 # stop
-			else :
-				value = 255	#fullspeed
-			the_state = "accel"
-		if the_state == "backward":
-			if value == 0:
+				the_state = "accel"
+			if the_state == "backward":
 				value = 128
-			else:
-				 value = 0  #backward
-			the_state = "accel"
-			
-		if the_state == "right":
-			if value == 0:
+				the_state = "accel"
+			if the_state == "right":
 				value = 128
-			else :
-				value = 255 #full right
-			the_state = "steering"
-		if the_state == "left":
-			if value == 0:
+				the_state = "steering"
+			if the_state == "left":
 				value = 128
-			else :
-				value = 0 #full left
-			the_state = "steering"
+				the_state = "steering"
 
-		if the_state == "steering":
-			value = ((value*(10/256))+10) #the car expects 10 to be left, and 20 right. so 15 is middle
-			value += 0.5 #correct rounding
-			value = int(value)
+		else:		# pressed
+			if the_state == "forward":
+				value = 255 # stop
+				the_state = "accel"
+			if the_state == "backward":
+				value = 0
+				the_state = "accel"
+			if the_state == "right":
+				value = 255
+				the_state = "steering"
+			if the_state == "left":
+				value = 0
+				the_state = "steering"
+		if the_state == "steering" or the_state == "accel":
+			tmp = float(value)
+			tmp = ((tmp*(float(10)/float(256)))+float(10)) #the car expects 10 to be left, and 20 right. so 15 is middle
+			tmp += 0.5 #correct rounding
+			value = int(tmp)
 		my_state_vals[my_states.index(the_state)] = value
 		self.update()
 		return
@@ -445,7 +449,7 @@ class main:
 	def update(self):
 		global my_states
 		global my_state_vals
-		data = ""
+		data = " " 
 		i = 0
 		length = len(my_state_vals)
 		while i < length:
@@ -454,10 +458,14 @@ class main:
 			data += "{val} ".format(val = my_state_vals[i])
 			i += 1
 		print data
-		self.car.send_packet(data, UPDATE)		
-		self.car.send_packet(data, DEBUG)		
+		self.car.send_packet(data, UPDATE)
 		return
 	
+	def request_stats(self):
+		data = ''		
+		self.car.send_packet(data, REQUEST)		
+		return
+
 # If the program is run directly or passed as an argument to the python
 if __name__ == "__main__":
 	app = main()
