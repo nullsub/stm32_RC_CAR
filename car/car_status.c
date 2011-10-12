@@ -61,13 +61,6 @@ void status_init()
 #endif
 }
 
-int val_to_servo(int value)
-{
-//	value = ((value*(10/256))+10); //the car expects 10 to be left, and 20 right. so 15 is middle
-	//value += 0.5 #correct rounding
-	return value;
-}
-
 void status_update_var(int index, int val)
 {
 	struct car_val *current_val = car_vals;
@@ -75,12 +68,10 @@ void status_update_var(int index, int val)
 		if (current_val->index == index && current_val->remote_controlled == 1) {
 			current_val->val = val;
 			if(current_val->index == STEERING_INDEX) {
-				servo_set(val_to_servo(val), STEERING_SERVO);
-				debug_msg("set steering servo");
+				servo_set(val, STEERING_SERVO);
 			}
 			if(current_val->index == ACCEL_INDEX) {
-				servo_set(val_to_servo(val), ACCEL_SERVO);
-				debug_msg("set accel servo");
+				servo_set(val, ACCEL_SERVO);
 			}
 			return;
 		}
@@ -98,8 +89,8 @@ void status_get_var_str(char *buffer)
 			itoa(current_val->index, (buffer),10);
 			while(*buffer)
 				buffer ++;
-			*buffer =  ' ';
-			itoa(current_val->val, (buffer + 1), 10);
+			*buffer ++ =  ' ';
+			itoa(current_val->val, (buffer), 10);
 			while(*buffer)
 				buffer ++;
 			*buffer =  ' ';
