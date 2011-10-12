@@ -11,7 +11,7 @@
 
 #define SERVO_UPDATE_TIME_MS 19	// the update period of the servos. this time is not critical
 
-#define ALL_SERVO_PINS (SERVO_PIN_0)
+#define ALL_SERVO_PINS (SERVO_PIN_0 |  SERVO_PIN_1)
 
 struct servo {
 	int pin;
@@ -35,7 +35,7 @@ static inline void swap_servos(struct servo *x, struct servo *y)
 void servo_init()
 {
 	servos[0].pin = SERVO_PIN_0;
-	//servos[1].pin = SERVO_PIN_1;
+	servos[1].pin = SERVO_PIN_1;
 
 	for (int i = 0; i < NR_OF_SERVOS; i++) {
 		servos[i].calibration = 0;
