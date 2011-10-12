@@ -221,10 +221,10 @@ int tsnprintf(char *out, unsigned int count, const char *format, ...)
 }
 #endif //USE_TERMINAL
 
-int data_out(char * data, unsigned int cnt)
+int data_out(char *data, int cnt)
 {
-	for (unsigned int i = 0; i < cnt; i++) {
-		putchar(*(data + i*sizeof(char)));
+	for (int i = 0; i < cnt; i++) {
+		putchar((char)*(data + i));
 	}
 	return cnt;
 }
