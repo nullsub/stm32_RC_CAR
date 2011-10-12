@@ -84,9 +84,10 @@ void servo_set(unsigned int val, int pin)
 		}
 	}
 
-	taskDISABLE_INTERRUPTS();
 
 	servos[index].time = val * TIME_100_US + servos[index].calibration;	// 10 is left, 20 is right , 15 is middle!
+	
+	taskDISABLE_INTERRUPTS();
 
 	for (int i = 0; i < NR_OF_SERVOS; i++) {
 		servos[i].int_time = servos[i].time;	//reset
