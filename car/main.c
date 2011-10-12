@@ -42,7 +42,7 @@
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
 #define UART_SEND_QUEUE_SIZE	16	
-#define UART_RECEIVE_QUEUE_SIZE 64
+#define UART_RECEIVE_QUEUE_SIZE 24
 
 /* Function Prototypes */
 static void setup_rcc(void);
@@ -95,7 +95,7 @@ inline void main_noreturn(void)
 	xTaskHandle task;
 
 	xTaskCreate(startup_task, (signed portCHAR *)"startup",
-		    configMINIMAL_STACK_SIZE * 1, NULL, tskIDLE_PRIORITY + 2,
+		    configMINIMAL_STACK_SIZE * 1, NULL, tskIDLE_PRIORITY + 1,
 		    &task);
 	assert_param(task);
 
@@ -126,7 +126,7 @@ void startup_task(void *pvParameters)
 	xTaskHandle task;
 
 	xTaskCreate(serial_task, (signed portCHAR *)"serial",
-		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1,
+		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2,
 		    &task);
 	assert_param(task);
 
