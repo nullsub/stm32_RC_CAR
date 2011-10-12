@@ -77,15 +77,17 @@ void handle_package(char *command, unsigned char mode)
 		debug_msg("debug_mode in device");
 		break;
 	case REQUEST_MODE:	// remote app requests vars.
-		//send_all_vals();
+		send_all_vals();
 		break;
 	case UPDATE_MODE:{	//Remote app sends updated vars
 			unsigned int string_i = 0;
 			unsigned int length = strlen(command);
 			char index[ARG_LENGTH];
 			char val[ARG_LENGTH];
-			while (string_i < length) {
+			while (string_i < length-2) {
 				string_i += get_word(index, (command+string_i), ARG_LENGTH);
+				if(*index == NULL) 
+					return;
 				string_i += get_word(val, (command + string_i), ARG_LENGTH);
 				status_update_var(atoi(index), atoi(val));
 			}
@@ -100,12 +102,9 @@ void handle_package(char *command, unsigned char mode)
 
 void send_all_vals()
 {
-/*	char command[MAX_COMMAND_LENGTH];
+	char command[MAX_COMMAND_LENGTH];
 	status_get_var_str(command);
-	debug_msg("send_all_vals: package is");
-	debug_msg(command);
 	send_package(command, UPDATE_MODE);
-*/
 }
 
 void send_package(char *data, unsigned char mode)
@@ -114,16 +113,12 @@ void send_package(char *data, unsigned char mode)
 		debug_msg("unknown mode in send_package");
 		return;
 	}
-	unsigned int length_i = strlen(data);
-	if (length_i > 255) {
-		debug_msg("data to long in send_package");
-		return;
-	}
-	xSemaphoreTake(send_mutex, portMAX_DELAY);
-	vTaskDelay(20/portTICK_RATE_MS);
+
+	unsigned int length = strlen(data);
 	char length_str[4];
-	unsigned char length = (unsigned char)length_i;
-	if(length < 10) {
+
+	/* need leading Zeros for the protocol*/
+	if(length < 10) { 
 		length_str[0] = '0';
 		length_str[1] = '0';
 		itoa(length, &length_str[2], 10);
@@ -135,7 +130,12 @@ void send_package(char *data, unsigned char mode)
 	else if(length < 1000) {
 		itoa(length, &length_str[0], 10);
 	}
+	else {
+		debug_msg("data to long in send_package");
+		return;
+	}
 		
+	xSemaphoreTake(send_mutex, portMAX_DELAY);
 	data_out(length_str, 3);
 	data_out(&mode, 1);
 	data_out(data, length);
@@ -145,9 +145,7 @@ void send_package(char *data, unsigned char mode)
 void debug_msg(char *msg)
 {
 	xSemaphoreTake(debug_msg_mutex, portMAX_DELAY);	
-	send_package("DEBUG", DEBUG_MODE);
 	send_package(msg, DEBUG_MODE);
-	send_package("\n", DEBUG_MODE);
 	xSemaphoreGive(debug_msg_mutex);	
 }
 
@@ -354,8 +352,11 @@ int add_cmd(char *cmd_name, void (*func) (char *args))
 int get_word(char *buffer, char *source, const int length)
 {
 	int currnt_length = 0;
-	while (*source == ' ')
+	int skipped_chars = 0;
+	while (*source == ' ') {
 		source += sizeof(char);
+		skipped_chars ++;
+	}
 	while (*source != 0x00 && *source != ' ' && currnt_length < length) {
 		*buffer = *source;
 		buffer += sizeof(char);
@@ -363,6 +364,6 @@ int get_word(char *buffer, char *source, const int length)
 		currnt_length ++;
 	}
 	*buffer = 0x00;
-	return  currnt_length;
+	return  currnt_length + skipped_chars;
 }
 
