@@ -16,6 +16,7 @@
 #define SERVO_MIDDLE 	15
 
 #define STEERING_SERVO SERVO_PIN_1
+#define ACCEL_SERVO SERVO_PIN_0
 
 void servo_init();
 void servo_set(unsigned int val, int pin);
