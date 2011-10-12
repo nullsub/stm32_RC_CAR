@@ -41,8 +41,8 @@
 
 #define MS_PER_SEC		1000
 #define DEBOUNCE_DELAY		40
-#define UART_SEND_QUEUE_SIZE	32 
-#define UART_RECEIVE_QUEUE_SIZE 16
+#define UART_SEND_QUEUE_SIZE	16	
+#define UART_RECEIVE_QUEUE_SIZE 64
 
 /* Function Prototypes */
 static void setup_rcc(void);
@@ -131,7 +131,7 @@ void startup_task(void *pvParameters)
 	assert_param(task);
 
 	xTaskCreate(button_task, (signed portCHAR *)"button",
-		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2,
+		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1,
 		    &task);
 	assert_param(task);
 
