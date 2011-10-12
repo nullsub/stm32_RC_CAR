@@ -48,17 +48,39 @@ void status_init()
 	battery.index = BATTERY_INDEX;
 	battery.remote_controlled = 0;
 	battery.next = 0x00000000;
+
+#if 0
+	xTimerHandle status_timer = xTimerHandle xTimerCreate( "status_vars",
+					( 500 / portTICK_RATE_MS ), /* every 500ms */
+						 pdTRUE, 
+                        				0, status_timer_callback);
+	if(status_timer == NULL) {
+		debug_msg("could not create status timer");
+	}
+	xTimerStart(status_timer, 0);
+#endif
+}
+
+int val_to_servo(int value)
+{
+//	value = ((value*(10/256))+10); //the car expects 10 to be left, and 20 right. so 15 is middle
+	//value += 0.5 #correct rounding
+	return value;
 }
 
 void status_update_var(int index, int val)
 {
 	struct car_val *current_val = car_vals;
-	int string_i = 0;
-	while (string_i < 250 && current_val != 0x00) {
-		if (current_val->index == index) {
+	while (current_val != 0x00) {
+		if (current_val->index == index && current_val->remote_controlled == 1) {
 			current_val->val = val;
-			if(current_val->remote_controlled == STEERING_INDEX) {
-				servo_set(val, STEERING_SERVO);
+			if(current_val->index == STEERING_INDEX) {
+				servo_set(val_to_servo(val), STEERING_SERVO);
+				debug_msg("set steering servo");
+			}
+			if(current_val->index == ACCEL_INDEX) {
+				servo_set(val_to_servo(val), ACCEL_SERVO);
+				debug_msg("set accel servo");
 			}
 			return;
 		}
@@ -85,4 +107,12 @@ void status_get_var_str(char *buffer)
 		}
 		current_val = current_val->next;
 	}
+	*buffer = 0x00;
 }
+
+#if 0
+void status_timer_callback(xTimerHandle pxTimer)
+{
+
+}
+#endif
