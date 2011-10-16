@@ -1,5 +1,4 @@
 #include "servo.h"
-#include <string.h> // memcpy
 
 /* STM32 includes */
 #include <FreeRTOS.h>
@@ -17,20 +16,9 @@ struct servo {
 	int pin;
 	unsigned int calibration;
 	unsigned int time;
-	volatile unsigned int int_time;
-	/*when servo_update is called, this is copied 
-	   into servo_state_INT, this done to ensure that interrupts are enabled as long as possible */
 };
 
 struct servo servos[NR_OF_SERVOS];
-
-static inline void swap_servos(struct servo *x, struct servo *y)
-{
-	struct servo temp;
-	memcpy(&temp, x, sizeof(struct servo));
-	memcpy(x, y, sizeof(struct servo));
-	memcpy(y, &temp, sizeof(struct servo));
-}
 
 void servo_init()
 {
@@ -83,33 +71,7 @@ void servo_set(unsigned int val, int pin)
 			break;
 		}
 	}
-
-
 	servos[index].time = val * TIME_100_US + servos[index].calibration;	// 10 is left, 20 is right , 15 is middle!
-	
-	taskDISABLE_INTERRUPTS();
-
-	for (int i = 0; i < NR_OF_SERVOS; i++) {
-		servos[i].int_time = servos[i].time;	//reset
-	}
-
-	if (NR_OF_SERVOS > 1) {
-		for (int i = 0; i < (NR_OF_SERVOS - 1); i++) {
-			for (int j = 0; j < (NR_OF_SERVOS - (i + 1)); j++) {
-				if (servos[j].time > servos[j + 1].time) {
-					swap_servos(&servos[j], &servos[j + 1]);
-				}
-			}
-		}
-
-		unsigned int length = 0;
-		for (int i = 1; i < NR_OF_SERVOS; i++) {	//ordering now with offset
-			length += servos[i - 1].int_time;
-			servos[i].int_time -= length;
-		}
-	}
-
-	taskENABLE_INTERRUPTS();
 }
 
 unsigned int servo_get(unsigned int index)
@@ -121,42 +83,36 @@ unsigned int servo_get(unsigned int index)
 	return servos[index].time / TIME_100_US - servos[index].calibration;
 }
 
-#define START_PULSE 1
-#define STOP_PULSE 0
-
 void tim2_isr(void)		//__attribute__ ((interrupt)) this interrupt breaks if it is optimized!!!!!!!!!!!!
 {
-	static int state = START_PULSE;
-	static unsigned int crrnt_servo;
-	uint16_t next_time = SERVO_UPDATE_TIME_MS * TIME_1_MS;
+	static unsigned int crrnt_servo = 0;
+	static uint16_t crrnt_period = 0;
+	static int start_flag = 1;
+	const uint16_t update_period = SERVO_UPDATE_TIME_MS * TIME_1_MS;
 
-	if (state == START_PULSE) {
-		SERVO_PORT->BSRR = ALL_SERVO_PINS;	// can take full mask of all bits!
-		next_time = servos[0].int_time;
+	SERVO_PORT->BRR = servos[crrnt_servo].pin; //clear
+		
+	if(start_flag) {
+		start_flag = 0;	
+	}else {
+		crrnt_servo ++;
+	}
+	if(crrnt_servo >= NR_OF_SERVOS){
 		crrnt_servo = 0;
-		state = STOP_PULSE;
-	} else if (state == STOP_PULSE) {
-		SERVO_PORT->BRR = servos[crrnt_servo].pin;
-
-		crrnt_servo++;
-		if (crrnt_servo < NR_OF_SERVOS) {	// "not the last"
-			next_time = servos[crrnt_servo].int_time;
-			while (next_time == 0 && crrnt_servo < NR_OF_SERVOS) {
-				SERVO_PORT->BRR = servos[crrnt_servo].pin;
-				crrnt_servo++;
-				if (crrnt_servo < NR_OF_SERVOS)
-					next_time =
-					    servos[crrnt_servo].int_time;
-			}
+		if(crrnt_period < update_period-(TIME_1_MS*3)) { //too early to start the next refresh...
+			start_flag = 1; 
+			TIM2->ARR = update_period-crrnt_period; 
+			crrnt_period = 0;
+			TIM_ClearFlag(TIM2, TIM_FLAG_Update);	//Interrupt Flag von TIM2 Löschen
+			return;
 		}
-
-		if (crrnt_servo >= NR_OF_SERVOS) {
-			state = START_PULSE;
-			next_time = SERVO_UPDATE_TIME_MS * TIME_1_MS;
-		}
+		crrnt_period = 0;
 	}
 
-	TIM2->ARR = next_time;
+	SERVO_PORT->BSRR = servos[crrnt_servo].pin; //set
+
+	crrnt_period += servos[crrnt_servo].time;
+	TIM2->ARR = servos[crrnt_servo].time;
 
 	TIM_ClearFlag(TIM2, TIM_FLAG_Update);	//Interrupt Flag von TIM2 Löschen
 }

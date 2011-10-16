@@ -94,7 +94,7 @@ class communication():
 		self.rec_thread.deamon = True
 		self.rec_thread.start()
 		self.connected = True
-		update_timer = RepeatTimer.RepeatTimer(0.25,self.update)
+		update_timer = RepeatTimer.RepeatTimer(0.1,self.update)
 		update_timer.start()
 		return True
 
