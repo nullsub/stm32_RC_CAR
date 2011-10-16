@@ -212,7 +212,7 @@ endif
 # 0 = turn off optimization. s = optimize for size.
 # (Note: 3 is not always the best optimization level. See avr-libc FAQ.)
 
-OPT = 0
+OPT = s
 
 # Place project-specific -D and/or -U options for
 # Assembler with preprocessor here.

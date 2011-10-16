@@ -82,8 +82,8 @@ unsigned int servo_get(unsigned int index)
 
 	return servos[index].time / TIME_100_US - servos[index].calibration;
 }
-
-void tim2_isr(void)		//__attribute__ ((interrupt)) this interrupt breaks if it is optimized!!!!!!!!!!!!
+void tim2_isr(void) __attribute__ ((optimize(0)));// this interrupt breaks if it is optimized!!!!!!!!!!!!
+void tim2_isr(void)
 {
 	static unsigned int crrnt_servo = 0;
 	static uint16_t crrnt_period = 0;
