@@ -1,9 +1,8 @@
 The goal of this rc-car project is to control an rc-car over ethernet by a pc/smartphone. 
 
-./car   this folder contains the code for the stm32 microcontroller of the car. It is written C with a little bit of assembler 
-./docs  this folder contains documentation
-./remote_control this folder contains the remote controlling apps. the Main app for linux is written in Python using PyGtk for the gui 
-
+./car			-	code of the car(stm32 arm microcontroller) 
+./docs			-	documentation
+./remote_control	-	Python app using pyGTK for remote control 
 
 Toolchain:
         https://github.com/esden/summon-arm-toolchain
@@ -14,10 +13,12 @@ flasher and debugger:
 software & Freertos template:
         https://github.com/doceme/stm32_template
 
+To make the serial connection available on the network for dev-pc, ser2net is used:
+	http://ser2net.sourceforge.net/
 
-Infos:
+
+Some links:
 http://www.emcu.it/STM32.html
-https://github.com/texane/stlink   // gdb server and flasher
 http://gostm32.blogspot.com/2010/09/installing-gnu-arm-toolkit.html
 http://stm32.spacevs.com/
 http://code.google.com/p/stm32flash/source/checkout
