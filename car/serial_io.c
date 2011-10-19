@@ -86,7 +86,7 @@ void handle_package(char *command, unsigned char mode)
 			char val[ARG_LENGTH];
 			while (string_i < length-2) {
 				string_i += get_word(index, (command+string_i), ARG_LENGTH);
-				if(*index == NULL) 
+				if(*index == 0x00) 
 					return;
 				string_i += get_word(val, (command + string_i), ARG_LENGTH);
 				status_update_var(atoi(index), atoi(val));
@@ -137,7 +137,7 @@ void send_package(char *data, unsigned char mode)
 		
 	xSemaphoreTake(send_mutex, portMAX_DELAY);
 	data_out(length_str, 3);
-	data_out(&mode, 1);
+	data_out((char *)&mode, 1);
 	data_out(data, length);
 	xSemaphoreGive(send_mutex);
 }
