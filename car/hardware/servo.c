@@ -8,13 +8,16 @@
 #define TIME_100_US 	15	//0.1ms timer value
 #define TIME_1_MS 	TIME_100_US*10	//1ms timer value
 
+#define SERVO_MAX	TIME_1_MS*2 	// right
+#define SERVO_MIN	TIME_1_MS 	// left
+
 #define SERVO_UPDATE_TIME_MS 19	// the update period of the servos. this time is not critical
 
 #define ALL_SERVO_PINS (SERVO_PIN_0 |  SERVO_PIN_1)
 
 struct servo {
 	int pin;
-	unsigned int calibration;
+	signed int calibration;
 	unsigned int time;
 };
 
@@ -27,9 +30,8 @@ void servo_init()
 
 	for (int i = 0; i < NR_OF_SERVOS; i++) {
 		servos[i].calibration = 0;
-		servos[i].time = SERVO_MIDDLE * TIME_100_US;
+		servo_set(SERVO_MIDDLE, servos[i].pin);
 	}
-	servo_set(SERVO_MIDDLE, servos[0].pin);
 
 	TIM_TimeBaseInitTypeDef timer_settings;
 	/* TIM2CLK = 24 MHz, Prescaler = 160, TIM2 counter clock = 150000 Hz 
@@ -56,7 +58,7 @@ void servo_init()
 
 void servo_set(unsigned int val, int pin)
 {
-	if (val < 10 || val > 20) {
+	if (val < SERVO_MIN || val > SERVO_MAX) {
 		return;
 	}
 	if (pin == 99) {
@@ -71,7 +73,7 @@ void servo_set(unsigned int val, int pin)
 			break;
 		}
 	}
-	servos[index].time = val * TIME_100_US + servos[index].calibration;	// 10 is left, 20 is right , 15 is middle!
+	servos[index].time = val + servos[index].calibration;	// 150 is left, 300 is right , 225 is middle!
 }
 
 unsigned int servo_get(unsigned int index)
@@ -80,7 +82,7 @@ unsigned int servo_get(unsigned int index)
 		return 9999;
 	}
 
-	return servos[index].time / TIME_100_US - servos[index].calibration;
+	return (servos[index].time - servos[index].calibration);
 }
 void tim2_isr(void) __attribute__ ((optimize(0)));// this interrupt breaks if it is optimized!!!!!!!!!!!!
 void tim2_isr(void)
@@ -121,6 +123,6 @@ void servo_cal()
 {
 	for (int i = 0; i < NR_OF_SERVOS; i++) {
 		servos[i].calibration =
-		    (servos[i].time / TIME_100_US) - SERVO_MIDDLE;
+		    (servos[i].time) - SERVO_MIDDLE;
 	}
 }
