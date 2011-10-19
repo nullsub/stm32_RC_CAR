@@ -21,9 +21,11 @@ import threading
 import thread
 import array
 import RepeatTimer
+import sys
 
 global sock
 global update_timer 
+MAX_VALUE = sys.maxint 
 
 UPDATE = '1'
 REQUEST = '2'
@@ -260,7 +262,7 @@ class main:
 		self.options_box.lights = gtk.CheckButton("Lights")
 		self.options_box.logging = gtk.CheckButton("Logging")
 		self.options_box.debug = gtk.CheckButton("Debug")
-
+		
 		self.options_box.remote_ip = gtk.HBox()
 		self.options_box.remote_ip.entry = gtk.Entry(15)
 		self.options_box.remote_ip.entry.set_text("192.168.2.11");
@@ -434,34 +436,34 @@ class main:
 		global my_states
 		if value == 0:	# released
 			if the_state == "forward":
-				value = 128 # stop
+				value = ((MAX_VALUE+1)/2) # stop
 				the_state = "accel"
 			if the_state == "backward":
-				value = 128
+				value = ((MAX_VALUE+1)/2) 
 				the_state = "accel"
 			if the_state == "right":
-				value = 128
+				value = ((MAX_VALUE+1)/2) 
 				the_state = "steering"
 			if the_state == "left":
-				value = 128
+				value = ((MAX_VALUE+1)/2) 
 				the_state = "steering"
 
 		else:		# pressed
 			if the_state == "forward":
-				value = 255 # stop
+				value = MAX_VALUE
 				the_state = "accel"
 			if the_state == "backward":
 				value = 0
 				the_state = "accel"
 			if the_state == "right":
-				value = 255
+				value = MAX_VALUE
 				the_state = "steering"
 			if the_state == "left":
 				value = 0
 				the_state = "steering"
 		if the_state == "steering" or the_state == "accel":
 			tmp = float(value)
-			tmp = ((tmp*(float(10)/float(256)))+float(10)) #the car expects 10 to be left, and 20 right. so 15 is middle
+			tmp = ((tmp*(float(150)/float(MAX_VALUE+1)))+float(150)) #the car expects 150 to be left, and 300 right. so 225 is middle
 			tmp += 0.5 #correct rounding
 			value = int(tmp)
 		my_state_vals[my_states.index(the_state)] = value
