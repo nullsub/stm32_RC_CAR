@@ -8,10 +8,6 @@
 #for the standart UPDATE_MODE package, the message text consinst of:
 #[index_for_var_a][a_space][value_for_var_a][a_space].....up to a length of 255bytes!
 
-# set signal strength:
-# stuff_box.sig_strength.set_fraction,float(float(get_car_stats("signal"))/float(100)))	
-
-
 import pygtk
 pygtk.require('2.0')
 import gtk
@@ -22,10 +18,11 @@ import thread
 import array
 import RepeatTimer
 import sys
+import pygame
 
 global sock
 global update_timer 
-MAX_VALUE = sys.maxint 
+MAX_VALUE = (sys.maxint-1) 
 
 UPDATE = '1'
 REQUEST = '2'
@@ -39,14 +36,54 @@ car_stats_index = ["4", "5"   ,   "6"  ]
 car_stats = ["temp", "speed", "battery"]
 car_stats_vals = [0,      0    ,     0 ]
 
-signal = 0
-
 car_stats_lock = thread.allocate_lock()
 
-def add_nulls(num, cnt):
-	cnt = cnt - len(str(num))
-	nulls = '0' * cnt
-	return '%s%s' % (nulls, num)
+class jstick(threading.Thread): 
+	def __init__(self):
+       	 	super(jstick, self).__init__()
+       	 	self._stop = threading.Event()
+		
+		pygame.init()
+		self.nbJoy = pygame.joystick.get_count()
+
+		for i in range(self.nbJoy):
+			pygame.joystick.Joystick(i).init()
+		return
+
+	def run(self):
+		pygame.event.clear()
+
+		while not self._stop.isSet():
+			pygame.event.pump()
+			ev_list = pygame.event.get([pygame.JOYBUTTONDOWN, pygame.JOYHATMOTION, pygame.JOYAXISMOTION, pygame.KEYDOWN, pygame.JOYAXISMOTION])
+			for ev in ev_list:
+				if ev.type == pygame.JOYHATMOTION:
+					print "joyhatmotion"
+				elif ev.type == pygame.JOYBUTTONDOWN:
+					print "joybutton"
+				elif ev.type == pygame.JOYAXISMOTION:
+					if ev.axis == 0:
+						the_state = "steering"
+					elif ev.axis == 1: 
+						the_state = "accel"
+					else:
+						the_state = "bug"
+					tmp = float(ev.value*MAX_VALUE)
+					tmp = ((tmp*(float(150)/float(MAX_VALUE+1)))+float(150)) #the car expects 150 to be left, and 300 right. so 225 is middle
+					tmp += 0.5 #correct rounding
+					value =	int(tmp)
+					print "value = ", value
+					print the_state
+				#	my_state_vals[my_states.index(the_state)] = value
+		return
+	
+	def __del__(self):
+		self._stop.set()
+		pygame.quit()
+
+	def stop(self):
+		self._stop.set()
+		pygame.quit()
 
 def set_car_stats(index, val):
 	global car_stats_vals
@@ -74,7 +111,7 @@ def get_car_stats(name):
 		car_stats_lock.release()
 		return None
 	car_stats_lock.release()
-	return ret	
+	return ret
 
 class communication():
 	def __init__(self):
@@ -138,7 +175,10 @@ class communication():
 			print "unknown mode ", mode
 			return False
 
-		length  = add_nulls(len(data),3)
+		#add leading nulls
+		nulls = '0' * (3 - len(data)) 
+		length = '%s%s' % (nulls, len(data))
+
 		if len(data) < 0 or len(data) > 255:
 			print "Error length:" ,length
 			return
@@ -239,6 +279,7 @@ class main:
 		return False
 	
 	def destroy(self, widget, data=None):
+		self.joystick.stop()
 		self.car.disconnect()
 		gtk.main_quit()
 
@@ -345,6 +386,9 @@ class main:
 
 		#do some initializations
 		self.car = communication()
+	
+		self.joystick = jstick()
+		self.joystick.start()
 	
 	def options_handler(self, widget, data=None):
 		if data == "debug" :
@@ -468,8 +512,6 @@ class main:
 			value = int(tmp)
 		my_state_vals[my_states.index(the_state)] = value
 		return
-
-
 	
 	def request_stats(self):
 		data = ''		
