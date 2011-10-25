@@ -34,6 +34,12 @@ car_stats_index = ["4", "5"   ,   "6"  ]
 car_stats = ["temp", "speed", "battery"]
 car_stats_vals = [0,      0    ,     0 ]
 
+
+def convert_to_servo(value):
+	tmp = float(value)
+	tmp = ((tmp*(float(150)/float(MAX_VALUE+1)))+float(150)) #the car expects 150 to be left, and 300 right. so 225 is middle
+	tmp += 0.5 #correct rounding
+	return (int(tmp))
 car_stats_lock = thread.allocate_lock()
 
 class jstick(): 
@@ -65,13 +71,11 @@ class jstick():
 						the_state = "accel"
 					else:
 						the_state = "bug"
-					tmp = float(ev.value*MAX_VALUE)
-					tmp = ((tmp*(float(150)/float(MAX_VALUE+1)))+float(150)) #the car expects 150 to be left, and 300 right. so 225 is middle
-					tmp += 0.5 #correct rounding
-					value =	int(tmp)
 					print "value = ", value
 					print the_state
 				#	my_state_vals[my_states.index(the_state)] = value
+				value = convert_to_servo(ev.value*MAX_VALUE)
+				value = (value/2)+150 #why this??
 		return
 	
 	def __del__(self):
@@ -502,11 +506,8 @@ class main:
 				value = 0
 				the_state = "steering"
 		if the_state == "steering" or the_state == "accel":
-			tmp = float(value)
-			tmp = ((tmp*(float(150)/float(MAX_VALUE+1)))+float(150)) #the car expects 150 to be left, and 300 right. so 225 is middle
-			tmp += 0.5 #correct rounding
-			value = int(tmp)
 		my_state_vals[my_states.index(the_state)] = value
+			value = convert_to_servo(value)
 		return
 	
 	def request_stats(self):
