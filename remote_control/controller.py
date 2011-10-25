@@ -26,13 +26,14 @@ UPDATE = '1'
 REQUEST = '2'
 DEBUG = '0'
 
-my_states_index = [ "0" ,   "1"   , "2"  ,  "3"   ,]
-my_states = ["steering", "accel","lights", "debug",]
-my_state_vals = [ 0   ,     0  ,    0  ,    0   ,]
+STEERING_INDEX = '0'
+ACCEL_INDEX = '1'
+LIGHTS_INDEX = '2'
+DEBUG_INDEX = '3'
+TEMP_INDEX = '4'
+SPEED_INDEX = '5'
+BATTERY_INDEX = '6'
 
-car_stats_index = ["4", "5"   ,   "6"  ]
-car_stats = ["temp", "speed", "battery"]
-car_stats_vals = [0,      0    ,     0 ]
 
 
 def convert_to_servo(value):
@@ -78,41 +79,90 @@ class jstick():
 				value = (value/2)+150 #why this??
 		return
 	
+class stat:
+	def __init__(self,index, val, car_controlled):
+		self.lock = thread.allocate_lock()
+		self.index = index
+		self.val = val	
+		self.car_controlled = car_controlled
+		self.modified = True
+
+	def set_val(self, val):
+		self.lock.acquire()
+		self.val = val
+		self.modified = True
+		self.lock.release()
+	
+	def get_car_controlled(self):
+		return self.car_controlled	
+	
+	def get_index(self):
+		return self.index
+	
+	def get_modified(self):
+		self.lock.acquire()
+		ret = self.modified
+		self.modified = False
+		self.lock.release()
+		return ret	
+	
+	def get_val(self):
+		self.lock.acquire()
+		ret = self.val 
+		self.lock.release()
+		return ret
+
+global steering 
+global accel 	
+global lights 
+global debug 
+global temp 
+global speed
+global battery
+
+global stats
+
+def init_stats():
+	global stats
+
+	global steering 
+	global accel 	
+	global lights 
+	global debug 
+	global temp 
+	global speed
+	global battery
+		
+	steering = stat(STEERING_INDEX, convert_to_servo((MAX_VALUE+1)/2), 0)
+	accel 	=  stat(ACCEL_INDEX, convert_to_servo((MAX_VALUE+1)/2), 0)
+	lights = stat(LIGHTS_INDEX, 0, 0)
+	debug = stat(DEBUG_INDEX, 0, 0)
+	temp = stat(TEMP_INDEX, 0, 1)
+	speed = stat(SPEED_INDEX, 0, 1)
+	battery = stat(BATTERY_INDEX, 0, 1)
+	
+	stats = [steering, accel, lights, debug, temp, speed, battery,]
+
+def get_stat(index, val, car_controlled):
+	global stats
+	for stat in stats:
+		if stat.get_index() == index and stat.get_car_controlled() == car_controlled:
+			return stat.get_val()
+	print "failed to get_stat"
+	return False
+
+def set_stat(index , val, car_controlled):
+	global stats
+	for stat in stats:
+		if stat.get_index() == index and stat.get_car_controlled() == car_controlled:
+			stat.set_val(val)
+			return True
 	def __del__(self):
 		self._stop.set()
 		pygame.quit()
 
-	def stop(self):
-		self._stop.set()
-		pygame.quit()
-
-def set_car_stats(index, val):
-	global car_stats_vals
-	global car_stats
-	global car_stats_lock
-
-	car_stats_lock.acquire()
-	try:
-		car_stats_vals[car_stats_index.index(index)] = val
-	except ValueError:
-		car_stats_lock.release()
-		return False
-	car_stats_lock.release()
-	return True	
-
-def get_car_stats(name):
-	global car_stats_vals
-	global car_stats
-	global car_stats_lock
-
-	car_stats_lock.acquire()
-	try:
-		ret = car_stats_vals[car_stats.index(name)]
-	except ValueError:
-		car_stats_lock.release()
-		return None
-	car_stats_lock.release()
-	return ret
+	print "failed to set_stat"
+	return False
 
 class communication():
 	def __init__(self):
@@ -153,19 +203,18 @@ class communication():
 		return True
 
 	def update(self):
-		global my_states
-		global my_state_vals
+		global stats
 		data = "" 
 		self.joystick.update()
-		i = 0
-		length = len(my_state_vals)
-		while i < length:
-			data += "{state}" .format(state = my_states_index[i])
-			data += " "
-			data += "{val} ".format(val = my_state_vals[i])
-			i += 1
+		for stat in stats:	
+			if stat.get_car_controlled() == 0 and stat.get_modified():
+				data += "{state}" .format(state = stat.get_index())
+				data += " "
+				data += "{val} ".format(val = stat.get_val())
 		self.next_update = threading.Timer(0.15, self.update)
 		self.next_update.start() 
+		if data == "":
+			return
 		self.send_packet(data, UPDATE)
 		return
 
@@ -237,16 +286,16 @@ class receive_thread(threading.Thread):
 			length = len(var_list) 	
 			i = 0
 			while i < length-1:
-				if set_car_stats(var_list[i],int(var_list[i+1]))== False:
+				if set_stat(var_list[i],int(var_list[i+1]),1)== False:
 					print "unknown var in Package update"
 				i += 2
 
 			glib.idle_add(stuff_box.temp.set_label,
-				"{temp} Degrees C" .format(temp = get_car_stats("temp")))
+				"{temp} Degrees C" .format(temp = temp.get_val()))
 			glib.idle_add(stuff_box.speed.set_label,
-				"{speed} Km/h" .format(speed = get_car_stats("speed")))
+				"{speed} Km/h" .format(speed = speed.get_val()))
 			glib.idle_add(stuff_box.battery.set_fraction, 
-				float(float(get_car_stats("battery"))/float(100)))	
+				float(float(battery.get_val())/float(100)))	
 		elif mode == REQUEST:
 			print "request" 
 		else :
@@ -508,6 +557,7 @@ class main:
 		if the_state == "steering" or the_state == "accel":
 		my_state_vals[my_states.index(the_state)] = value
 			value = convert_to_servo(value)
+		set_stat(index, value, 0)
 		return
 	
 	def request_stats(self):
