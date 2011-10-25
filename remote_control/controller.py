@@ -16,12 +16,10 @@ import socket
 import threading
 import thread
 import array
-import RepeatTimer
 import sys
 import pygame
 
 global sock
-global update_timer 
 MAX_VALUE = (sys.maxint-1) 
 
 UPDATE = '1'
@@ -38,18 +36,17 @@ car_stats_vals = [0,      0    ,     0 ]
 
 car_stats_lock = thread.allocate_lock()
 
-class jstick(threading.Thread): 
+class jstick(): 
 	def __init__(self):
-       	 	super(jstick, self).__init__()
-       	 	self._stop = threading.Event()
-		
-		pygame.init()
+		pygame.joystick.init()
+		pygame.display.init()
 		self.nbJoy = pygame.joystick.get_count()
 
 		for i in range(self.nbJoy):
 			pygame.joystick.Joystick(i).init()
 		return
 
+	def update(self):
 	def run(self):
 		pygame.event.clear()
 
@@ -119,7 +116,6 @@ class communication():
 
 	def connect(self, ip_address, port) :
 		global sock
-		global update_timer 
 		sock = socket.socket()
 		try:
 			sock.connect((ip_address, port))
@@ -133,21 +129,22 @@ class communication():
 		self.rec_thread.deamon = True
 		self.rec_thread.start()
 		self.connected = True
-		update_timer = RepeatTimer.RepeatTimer(0.1,self.update)
-		update_timer.start()
+		self.joystick = jstick()
+		self.next_update = threading.Timer(0.2,self.update)
+		self.next_update.start()
 		return True
 
 	def disconnect(self):
 		global sock
-		global update_timer 
 		if self.connected == False:
 			return True
-		update_timer.cancel()
 		self.connected = False
+		self.next_update.cancel()
 		self.rec_thread.stop()
 		
 		sock.close()	
 		self.rec_thread.join()
+		self.joystick = None
 		sock = None
 		return True
 
@@ -155,6 +152,7 @@ class communication():
 		global my_states
 		global my_state_vals
 		data = "" 
+		self.joystick.update()
 		i = 0
 		length = len(my_state_vals)
 		while i < length:
@@ -162,6 +160,8 @@ class communication():
 			data += " "
 			data += "{val} ".format(val = my_state_vals[i])
 			i += 1
+		self.next_update = threading.Timer(0.15, self.update)
+		self.next_update.start() 
 		self.send_packet(data, UPDATE)
 		return
 
@@ -279,13 +279,12 @@ class main:
 		return False
 	
 	def destroy(self, widget, data=None):
-		self.joystick.stop()
 		self.car.disconnect()
 		gtk.main_quit()
 
 	def __init__(self):
 		global stuff_box
-		global update_timer 
+	
 		# create a new window
 		self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
 		self.window.connect("delete_event", self.delete_event)
@@ -386,10 +385,7 @@ class main:
 
 		#do some initializations
 		self.car = communication()
-	
-		self.joystick = jstick()
-		self.joystick.start()
-	
+		
 	def options_handler(self, widget, data=None):
 		if data == "debug" :
 			val = 0
