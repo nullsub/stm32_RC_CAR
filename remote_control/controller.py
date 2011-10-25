@@ -228,14 +228,13 @@ class communication():
 			print "unknown mode ", mode
 			return False
 
-		#add leading nulls
-		nulls = '0' * (3 - len(data)) 
-		length = '%s%s' % (nulls, len(data))
-
 		if len(data) < 0 or len(data) > 255:
 			print "Error length:" ,length
 			return
 
+		#add leading nulls
+		nulls = '0' * (3 - len(str(len(data))))
+		length = '%s%s' % (nulls, len(data))
 		sock.send(length)
 		sock.send(mode)
 		sock.send(data)
