@@ -15,7 +15,6 @@ import glib
 import socket
 import threading
 import thread
-import array
 import sys
 import pygame
 
@@ -41,7 +40,6 @@ def convert_to_servo(value):
 	tmp = ((tmp*(float(150)/float(MAX_VALUE+1)))+float(150)) #the car expects 150 to be left, and 300 right. so 225 is middle
 	tmp += 0.5 #correct rounding
 	return (int(tmp))
-car_stats_lock = thread.allocate_lock()
 
 class jstick(): 
 	def __init__(self):
@@ -54,29 +52,24 @@ class jstick():
 		return
 
 	def update(self):
-	def run(self):
-		pygame.event.clear()
-
-		while not self._stop.isSet():
+		try:
 			pygame.event.pump()
-			ev_list = pygame.event.get([pygame.JOYBUTTONDOWN, pygame.JOYHATMOTION, pygame.JOYAXISMOTION, pygame.KEYDOWN, pygame.JOYAXISMOTION])
-			for ev in ev_list:
-				if ev.type == pygame.JOYHATMOTION:
-					print "joyhatmotion"
-				elif ev.type == pygame.JOYBUTTONDOWN:
-					print "joybutton"
-				elif ev.type == pygame.JOYAXISMOTION:
-					if ev.axis == 0:
-						the_state = "steering"
-					elif ev.axis == 1: 
-						the_state = "accel"
-					else:
-						the_state = "bug"
-					print "value = ", value
-					print the_state
-				#	my_state_vals[my_states.index(the_state)] = value
+			ev_list = pygame.event.get([pygame.JOYBUTTONDOWN, pygame.JOYHATMOTION, pygame.JOYAXISMOTION, pygame.JOYAXISMOTION])
+		except:
+			print "exception in joystick update"
+			return
+		for ev in ev_list:
+			if ev.type == pygame.JOYHATMOTION:
+				print "joyhatmotion"
+			elif ev.type == pygame.JOYBUTTONDOWN:
+				print "joybutton"
+			elif ev.type == pygame.JOYAXISMOTION:
 				value = convert_to_servo(ev.value*MAX_VALUE)
 				value = (value/2)+150 #why this??
+				if ev.axis == 0:
+					set_stat(STEERING_INDEX,value,0)
+				elif ev.axis == 1: 
+					set_stat(ACCEL_INDEX,value,0)
 		return
 	
 class stat:
@@ -157,9 +150,6 @@ def set_stat(index , val, car_controlled):
 		if stat.get_index() == index and stat.get_car_controlled() == car_controlled:
 			stat.set_val(val)
 			return True
-	def __del__(self):
-		self._stop.set()
-		pygame.quit()
 
 	print "failed to set_stat"
 	return False
@@ -173,12 +163,13 @@ class communication():
 		sock = socket.socket()
 		try:
 			sock.connect((ip_address, port))
-		except socket.error, msg:
+		except:
 	       		sock.close()
 			sock = None
 			print "could not connect"
+			self.connected = False
 			return False
-		sock.settimeout(3)
+		sock.settimeout(2)
 		self.rec_thread = receive_thread()
 		self.rec_thread.deamon = True
 		self.rec_thread.start()
@@ -195,10 +186,9 @@ class communication():
 		self.connected = False
 		self.next_update.cancel()
 		self.rec_thread.stop()
-		
-		sock.close()	
 		self.rec_thread.join()
 		self.joystick = None
+		sock.close()	
 		sock = None
 		return True
 
@@ -235,6 +225,7 @@ class communication():
 		#add leading nulls
 		nulls = '0' * (3 - len(str(len(data))))
 		length = '%s%s' % (nulls, len(data))
+
 		sock.send(length)
 		sock.send(mode)
 		sock.send(data)
@@ -438,27 +429,29 @@ class main:
 		#do some initializations
 		self.car = communication()
 		
+		init_stats()
+
 	def options_handler(self, widget, data=None):
 		if data == "debug" :
 			val = 0
 			if widget.get_active():
 				val = 1
-			self.do_action(data,val)
+			self.do_action(DEBUG_INDEX,val)
 		if data == "logging" :
-		#	print "logging is checked"
-			self.request_stats()
+			print "logging is checked"
 		if data == "lights":
 			val = 0
 			if widget.get_active():
 				val = 1
-			self.do_action(data,val)
+			self.do_action(LIGHTS_INDEX,val)
 		if data == "connect_button":
 			if widget.get_label() == "Disconnect":
 				if self.car.disconnect() == True:
 					widget.set_label(" Connect ")
 			else:
-				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 2005) == True :
+				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 2005) == True:
 					widget.set_label("Disconnect")
+					self.car.send_packet(data, REQUEST)	#get stats
 
 	up_clicked = 0
 	down_clicked = 0
@@ -467,103 +460,68 @@ class main:
 
 	def released_handler(self, widget, data):	
 		if data == "forward":
-			up_clicked = 0
-			self.do_action(data,0)
+			self.up_clicked = 0
+			value = ((MAX_VALUE+1)/2) 
+			self.do_action(ACCEL_INDEX,value)
 		if data == "backward":
-			down_clicked = 0
-			self.do_action(data,0)
+			self.up_clicked = 0
+			value = ((MAX_VALUE+1)/2) 
+			self.do_action(ACCEL_INDEX,value)
 		if data == "left":
-			left_clicked = 0
-			self.do_action(data,0)
+			value = ((MAX_VALUE+1)/2) 
+			self.left_clicked = 0
+			self.do_action(STEERING_INDEX,value)
 		if data == "right":
-			right_clicked = 0
-			self.do_action(data,0)
+			value = ((MAX_VALUE+1)/2) 
+			self.left_clicked = 0
+			self.do_action(STEERING_INDEX,value)
 
 	def pressed_handler(self, widget, data):	
 		if data == "forward":
-			up_clicked = 1
-			self.do_action(data,1)
+			self.up_clicked = 1
+			value = (MAX_VALUE) 
+			self.do_action(ACCEL_INDEX,value)
 		if data == "backward":
-			down_clicked = 1
-			self.do_action(data,1)
+			self.up_clicked = 1
+			value = 0
+			self.do_action(ACCEL_INDEX,value)
 		if data == "left":
-			left_clicked = 1
-			self.do_action(data,1)
+			value = (MAX_VALUE) 
+			self.left_clicked = 1
+			self.do_action(STEERING_INDEX,value)
 		if data == "right":
-			right_clicked = 1
-			self.do_action(data,1)
+			value = 0 
+			self.left_clicked = 1
+			self.do_action(STEERING_INDEX,value)
 
 	def click_event(self, widget, event):
 		key = gtk.gdk.keyval_name(event.keyval)
 		if event.type == gtk.gdk.KEY_PRESS:
         		if (key == "w" or key == "Up") and self.up_clicked == 0:
-				self.do_action("forward",1)
-				self.up_clicked = 1
+				pressed_handler(None,"forward")
 			if (key == "a" or key == "Right") and self.right_clicked == 0:
-				self.do_action("right",1)
-				self.right_clicked = 1
+				pressed_handler(None,"right")
 			if (key == "s" or key == "Down") and self.down_clicked == 0:
-				self.do_action("backward",1)
-				self.down_clicked = 1
+				pressed_handler(None,"backward")
 			if (key == "d" or key == "Left") and self.left_clicked == 0:
-				self.do_action("left",1)
-				self.left_clicked = 1
+				pressed_handler(None,"left")
 
 		if event.type == gtk.gdk.KEY_RELEASE:	
         		if (key == "w" or key == "Up") and self.up_clicked == 1:
-				self.do_action("forward",0)
-				self.up_clicked = 0
+				released_handler(None,"forward")
 			if (key == "a" or key == "Right") and self.right_clicked == 1:
-				self.do_action("right",0)
-				self.right_clicked = 0
+				released_handler(None,"right")
 			if (key == "s" or key == "Down") and self.down_clicked == 1:
-				self.do_action("backward",0)
-				self.down_clicked = 0
+				released_handler(None,"backward")
 			if (key == "d" or key == "Left") and self.left_clicked == 1:
-				self.do_action("left",0)
-				self.left_clicked = 0
+				released_handler(None,"backward")
 
-	def do_action(self, the_state, value):
-		global my_state_vals
-		global my_states
-		if value == 0:	# released
-			if the_state == "forward":
-				value = ((MAX_VALUE+1)/2) # stop
-				the_state = "accel"
-			if the_state == "backward":
-				value = ((MAX_VALUE+1)/2) 
-				the_state = "accel"
-			if the_state == "right":
-				value = ((MAX_VALUE+1)/2) 
-				the_state = "steering"
-			if the_state == "left":
-				value = ((MAX_VALUE+1)/2) 
-				the_state = "steering"
-
-		else:		# pressed
-			if the_state == "forward":
-				value = MAX_VALUE
-				the_state = "accel"
-			if the_state == "backward":
-				value = 0
-				the_state = "accel"
-			if the_state == "right":
-				value = MAX_VALUE
-				the_state = "steering"
-			if the_state == "left":
-				value = 0
-				the_state = "steering"
-		if the_state == "steering" or the_state == "accel":
-		my_state_vals[my_states.index(the_state)] = value
+	def do_action(self, index, value):
+		if index == STEERING_INDEX or index == ACCEL_INDEX:
 			value = convert_to_servo(value)
 		set_stat(index, value, 0)
 		return
 	
-	def request_stats(self):
-		data = ''		
-		self.car.send_packet(data, REQUEST)		
-		return
-
 # If the program is run directly or passed as an argument to the python
 if __name__ == "__main__":
 	app = main()
