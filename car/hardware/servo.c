@@ -65,15 +65,12 @@ void servo_set(unsigned int val, int pin)
 		return;
 	}
 
-	int index = 0;
-
 	for (int i = 0; i < NR_OF_SERVOS; i++) {
 		if (servos[i].pin == pin) {
-			index = i;
+			servos[i].time = val + servos[i].calibration;	// 150 is left, 300 is right , 225 is middle!
 			break;
 		}
 	}
-	servos[index].time = val + servos[index].calibration;	// 150 is left, 300 is right , 225 is middle!
 }
 
 unsigned int servo_get(unsigned int index)
