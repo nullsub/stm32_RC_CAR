@@ -17,8 +17,8 @@
 
 struct servo {
 	int pin;
-	signed int calibration;
-	unsigned int time;
+	volatile signed int calibration;
+	volatile unsigned int time;
 };
 
 struct servo servos[NR_OF_SERVOS];
