@@ -1,37 +1,51 @@
-#include "serial_io.h"
-#include "car_status.h"
-#include "common.h"
-#include "tprintf.h"
-
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "queue.h"
 
 #include <string.h>
-
-#ifdef USE_TERMINAL
+#include "tprintf.h"
+#include "common.h"
+#include "serial_io.h"
+#include "car_status.h"
 #include "servo.h"
-#endif
 
 extern xQueueHandle uart_receive_queue;
 
-static int get_word(char *buffer, char *source, int length);
+static int get_word(char *buffer, char *source, const int length)
+{
+	int currnt_length = 0;
+	int skipped_chars = 0;
+	while (*source == ' ') {
+		source += sizeof(char);
+		skipped_chars ++;
+	}
+	while (*source != 0x00 && *source != ' ' && currnt_length < length) {
+		*buffer = *source;
+		buffer += sizeof(char);
+		source += sizeof(char);
+		currnt_length ++;
+	}
+	*buffer = 0x00;
+	return  currnt_length + skipped_chars;
+}
 
 #ifndef USE_TERMINAL
-static void handle_package(char *command, unsigned char mode);
-static void send_all_vals();
-static void send_package(char *data, unsigned char mode);
 
-#define ARG_LENGTH 7 //length of arg
+#define ARG_LENGTH	7 
 
 /*
-Remote Cotrolling protocol:
-A package consists of:
-[length] + [mode] + [plaintext ascii command/message]
-where length and mode are one byte. Length may be 0!
-for the standart UPDATE_MODE package, the message text consinst of:
-[index_for_var_a][a_space][value_for_var_a][a_space].....up to a length of 255bytes!
-*/
+ *	Remote Cotrolling protocol:
+ *	A package consists of:
+ *	[length] + [mode] + [plaintext ascii command/message]
+ *	where length and mode are one byte. Length may be 0!
+ *	for the standart UPDATE_MODE package, the message text consinst of:
+ *	[index_for_var_a][a_space][value_for_var_a][a_space].....up to a length of 255bytes!
+ */
+
+static void handle_package(uint8_t mode, char * command, uint8_t length);
+static void send_all_vals();
+static void send_package(char *data, uint8_t mode);
+
 static xSemaphoreHandle send_mutex;
 static xSemaphoreHandle debug_msg_mutex;
 
@@ -46,10 +60,10 @@ void serial_task(void *pvParameters)	//remote_command_task
 {
 	char command[MAX_COMMAND_LENGTH];
 	char length_str[4];
-	unsigned char length;
-	unsigned char mode;
+	uint8_t length;
+	uint8_t mode;
 	unsigned char ch;
-	
+
 	for (;;) {
 		/* get length and mode */
 		xQueueReceive(uart_receive_queue, &length_str[0], portMAX_DELAY);
@@ -61,41 +75,38 @@ void serial_task(void *pvParameters)	//remote_command_task
 			length = MAX_COMMAND_LENGTH-1;
 			debug_msg("length is too long");
 		}
-		for (unsigned char i = 0; i < length; i++) {
+		for (uint8_t i = 0; i < length; i++) {
 			xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY);	
 			command[i] = ch;
 		}
 		command[length] = 0x00;
-		handle_package(command, mode);
+		handle_package(mode, command, length);
 	}
 }
 
-void handle_package(char *command, unsigned char mode)
+void handle_package(uint8_t mode, char * command, uint8_t length)
 {
+	char index[ARG_LENGTH];
+	char val[ARG_LENGTH];
 	switch (mode) {
-	case DEBUG_MODE:
-		debug_msg("debug_mode in device");
-		break;
-	case REQUEST_MODE:	// remote app requests vars.
-		send_all_vals();
-		break;
-	case UPDATE_MODE:{	//Remote app sends updated vars
-			unsigned int string_i = 0;
-			unsigned int length = strlen(command);
-			char index[ARG_LENGTH];
-			char val[ARG_LENGTH];
-			while (string_i < length-2) {
+		case UPDATE_MODE:	//Remote app sends updated vars
+			for(unsigned int string_i = 0; string_i < length-2;) {
 				string_i += get_word(index, (command+string_i), ARG_LENGTH);
 				if(*index == 0x00) 
 					return;
 				string_i += get_word(val, (command + string_i), ARG_LENGTH);
 				status_update_var(atoi(index), atoi(val));
 			}
-		}
-		break;
-	default: 
-		debug_msg("unknown mode!");
-		break;
+			break;
+		case DEBUG_MODE:
+			debug_msg("debug_mode in device");
+			break;
+		case REQUEST_MODE:	// remote app requests vars.
+			send_all_vals();
+			break;
+		default: 
+			debug_msg("unknown mode!");
+			break;
 	}
 	return;
 }
@@ -134,7 +145,7 @@ void send_package(char *data, unsigned char mode)
 		debug_msg("data to long in send_package");
 		return;
 	}
-		
+
 	xSemaphoreTake(send_mutex, portMAX_DELAY);
 	data_out(length_str, 3);
 	data_out((char *)&mode, 1);
@@ -197,30 +208,28 @@ void serial_task(void *pvParameters)	//term-task
 	for (;;) {
 		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY); //blocks
 		switch (ch) {
-		case '\b':
-			if (crrnt_cmd_i > 0) {
-				tprintf("%c %c", ch, ch);
-				crrnt_cmd_i--;
-			}
-			break;
-		case '\n':
-		case '\r':
-			tprintf("\n");
-			if (crrnt_cmd_i > 0) {
-				crrnt_cmd[crrnt_cmd_i] = 0x00;
-				if (parse_cmd(crrnt_cmd)) {
-					tprintf("unknown cmd\n");
+			case '\b':
+				if (crrnt_cmd_i > 0) {
+					tprintf("%c %c", ch, ch);
+					crrnt_cmd_i--;
 				}
-			}
-			tprintf("$");
-			crrnt_cmd_i = 0;
-			break;
-		default:
-			tprintf("%c", ch);
-			crrnt_cmd[crrnt_cmd_i] = ch;
-			if (crrnt_cmd_i < TERM_CMD_LENGTH - 1) {
-				crrnt_cmd_i++;
-			}
+				break;
+			case '\n':
+			case '\r':
+				tprintf("\n");
+				if (crrnt_cmd_i > 0) {
+					crrnt_cmd[crrnt_cmd_i] = 0x00;
+					if (parse_cmd(crrnt_cmd))
+						tprintf("unknown cmd\n");
+				}
+				tprintf("$");
+				crrnt_cmd_i = 0;
+				break;
+			default:
+				tprintf("%c", ch);
+				crrnt_cmd[crrnt_cmd_i] = ch;
+				if (crrnt_cmd_i < TERM_CMD_LENGTH - 1)
+					crrnt_cmd_i++;
 		}
 	}
 }
@@ -239,11 +248,11 @@ void cmd_status(char *args)
 {
 	int free_heap = xPortGetFreeHeapSize();
 	tprintf("Free Heap: %i of %i bytes used; %i%% full\n",
-		free_heap, configTOTAL_HEAP_SIZE,
-		((free_heap*100)/configTOTAL_HEAP_SIZE));
+			free_heap, configTOTAL_HEAP_SIZE,
+			((free_heap*100)/configTOTAL_HEAP_SIZE));
 	//peripherals
 	tprintf("%i Servo(s) are connected, Middle Value is %i\n", NR_OF_SERVOS,
-		SERVO_MIDDLE);
+			SERVO_MIDDLE);
 
 	for (int i = 0; i < NR_OF_SERVOS; i++) {
 		tprintf("Servo %i has val: %i\n", i, servo_get(i));
@@ -257,7 +266,7 @@ void cmd_servo_cal(char *args)
 }
 
 //char *args is <cmd_name> <arg1> <arg2> ...
-#define ARG_LENGTH 15 //length of arg
+#define ARG_LENGTH	15 
 
 void cmd_servo(char *args)
 {
@@ -283,14 +292,14 @@ void cmd_servo(char *args)
 	tprintf("set servo nr %i to %i \n", servo_nr, servo_val);
 
 	switch (servo_nr) {
-	case 0:
-		servo_nr = SERVO_PIN_0;
-		break;
-	case 1:
-		servo_nr = SERVO_PIN_1;
-		break;
-	default:
-		servo_nr = 99;
+		case 0:
+			servo_nr = SERVO_PIN_0;
+			break;
+		case 1:
+			servo_nr = SERVO_PIN_1;
+			break;
+		default:
+			servo_nr = 99;
 	}
 	servo_set(servo_val, servo_nr);
 }
@@ -332,7 +341,7 @@ int add_cmd(char *cmd_name, void (*func) (char *args))
 			crrnt_cmd = crrnt_cmd->next;
 		}
 		crrnt_cmd->next =
-		    (struct cmd *)pvPortMalloc(sizeof(struct cmd));
+			(struct cmd *)pvPortMalloc(sizeof(struct cmd));
 		if (crrnt_cmd->next == NULL) {
 			return -1;
 		}
@@ -348,22 +357,4 @@ int add_cmd(char *cmd_name, void (*func) (char *args))
 	return 0;
 }
 #endif				// USE_TERMINAL
-
-int get_word(char *buffer, char *source, const int length)
-{
-	int currnt_length = 0;
-	int skipped_chars = 0;
-	while (*source == ' ') {
-		source += sizeof(char);
-		skipped_chars ++;
-	}
-	while (*source != 0x00 && *source != ' ' && currnt_length < length) {
-		*buffer = *source;
-		buffer += sizeof(char);
-		source += sizeof(char);
-		currnt_length ++;
-	}
-	*buffer = 0x00;
-	return  currnt_length + skipped_chars;
-}
 
