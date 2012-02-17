@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-# Echo server program
+
 import socket
 import sys
 
 HOST = ''                 # Symbolic name meaning all available interfaces
-PORT = 12345              # Arbitrary non-privileged port
+PORT = 2005
 UPDATE = 0
 REQUEST = 1
 DEBUG = 2
 
-def send_packet(the_socket,data, mode):
+def send_packet(the_socket, data, mode):
 	length = len(data)
 	length = len(data)
 	if length <= 0 or length > 255:
@@ -31,15 +31,14 @@ print "connected by ",addr
 while 1:
 	sys.stdin.read(1)	
 	send_packet(conn,"4 23 6 76 7 52",UPDATE)
-	
+
 	sys.stdin.read(1)	
 	send_packet(conn,"4 21 6 76 7 12",UPDATE)
-	
+
 	sys.stdin.read(1)	
 	send_packet(conn,"5 32",UPDATE)
 
 	sys.stdin.read(1)	
 	send_packet(conn,"4 24 6 70 7 45",UPDATE)
 conn.close()
-
 

@@ -95,8 +95,8 @@ inline void main_noreturn(void)
 	xTaskHandle task;
 
 	xTaskCreate(startup_task, (signed portCHAR *)"startup",
-		    configMINIMAL_STACK_SIZE * 1, NULL, tskIDLE_PRIORITY + 1,
-		    &task);
+			configMINIMAL_STACK_SIZE * 1, NULL, tskIDLE_PRIORITY + 1,
+			&task);
 	assert_param(task);
 
 	/* Start the FreeRTOS scheduler */
@@ -111,7 +111,7 @@ void startup_task(void *pvParameters)
 	assert_param(uart_send_queue);
 
 	uart_receive_queue =
-	    xQueueCreate(UART_RECEIVE_QUEUE_SIZE, sizeof(unsigned char));
+		xQueueCreate(UART_RECEIVE_QUEUE_SIZE, sizeof(unsigned char));
 	assert_param(uart_receive_queue);
 
 	vSemaphoreCreateBinary(debounce_sem);
@@ -122,21 +122,21 @@ void startup_task(void *pvParameters)
 	serial_init();
 
 	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);	//enable receiving.
-	
+
 	xTaskHandle task;
 
 	xTaskCreate(serial_task, (signed portCHAR *)"serial",
-		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2,
-		    &task);
+			configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2,
+			&task);
 	assert_param(task);
 
 	xTaskCreate(button_task, (signed portCHAR *)"button",
-		    configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1,
-		    &task);
+			configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1,
+			&task);
 	assert_param(task);
 
 	vTaskDelete(NULL);
-	for (;;) ;
+	for (;;);
 }
 
 static inline void setup()
@@ -157,14 +157,14 @@ void setup_rcc(void)
 {
 	/* Enable PWR clock */
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR |
-			       RCC_APB1Periph_BKP | RCC_APB1Periph_TIM2,
-			       ENABLE);
+			RCC_APB1Periph_BKP | RCC_APB1Periph_TIM2,
+			ENABLE);
 
 	/* Enable GPIOA and GPIOC clock */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA |
-			       RCC_APB2Periph_GPIOC |
-			       RCC_APB2Periph_USART1 |
-			       RCC_APB2Periph_AFIO, ENABLE);
+			RCC_APB2Periph_GPIOC |
+			RCC_APB2Periph_USART1 |
+			RCC_APB2Periph_AFIO, ENABLE);
 
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 }
@@ -334,7 +334,7 @@ void button_task(void *pvParameters)
 			}
 		} else {
 			volatile uint8_t button =
-			    GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0);
+				GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0);
 
 			if (button_state == BUTTON_STATE_UP && button) {
 				button_state = BUTTON_STATE_DOWN;
@@ -362,3 +362,4 @@ void blink_toggle_green()
 	GPIO_WriteBit(GPIOC, GPIO_Pin_9, led_green);
 	led_green ^= 1;
 }
+

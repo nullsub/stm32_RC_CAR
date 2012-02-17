@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#Remote Controller for the STM rc-car 
+#Remote Controller for the rc-car 
 
 #Remote Cotrolling protocol:
 #A package consists of:
@@ -18,7 +18,7 @@ import thread
 import sys
 import pygame
 
-global sock
+sock = 0
 MAX_VALUE = (sys.maxint-1) 
 
 UPDATE = '1'
@@ -34,7 +34,6 @@ SPEED_INDEX = '5'
 BATTERY_INDEX = '6'
 
 
-
 def convert_to_servo(value):
 	tmp = float(value)
 	tmp = ((tmp*(float(150)/float(MAX_VALUE+1)))+float(150)) #the car expects 150 to be left, and 300 right. so 225 is middle
@@ -45,9 +44,9 @@ class jstick():
 	def __init__(self):
 		pygame.joystick.init()
 		pygame.display.init()
-		self.nbJoy = pygame.joystick.get_count()
+		joysticks = pygame.joystick.get_count()
 
-		for i in range(self.nbJoy):
+		for i in range(joysticks):
 			pygame.joystick.Joystick(i).init()
 		return
 
@@ -67,13 +66,13 @@ class jstick():
 				value = convert_to_servo(ev.value*MAX_VALUE)
 				value = (value/2)+150 #why this??
 				if ev.axis == 0:
-					set_stat(STEERING_INDEX,value,0)
+					set_stat(STEERING_INDEX, value, 0)
 				elif ev.axis == 1: 
-					set_stat(ACCEL_INDEX,value,0)
+					set_stat(ACCEL_INDEX, value, 0)
 		return
 	
 class stat:
-	def __init__(self,index, val, car_controlled):
+	def __init__(self, index, val, car_controlled):
 		self.lock = thread.allocate_lock()
 		self.index = index
 		self.val = val	
@@ -105,15 +104,14 @@ class stat:
 		self.lock.release()
 		return ret
 
-global steering 
-global accel 	
-global lights 
-global debug 
-global temp 
-global speed
-global battery
-
-global stats
+stats = 0
+steering  = 0
+accel 	 = 0
+lights  = 0
+debug  = 0
+temp  = 0
+speed = 0
+battery = 0
 
 def init_stats():
 	global stats
@@ -136,8 +134,7 @@ def init_stats():
 	
 	stats = [steering, accel, lights, debug, temp, speed, battery,]
 
-def get_stat(index, val, car_controlled):
-	global stats
+def get_stat(index, car_controlled):
 	for stat in stats:
 		if stat.get_index() == index and stat.get_car_controlled() == car_controlled:
 			return stat.get_val()
@@ -145,12 +142,10 @@ def get_stat(index, val, car_controlled):
 	return False
 
 def set_stat(index , val, car_controlled):
-	global stats
 	for stat in stats:
 		if stat.get_index() == index and stat.get_car_controlled() == car_controlled:
 			stat.set_val(val)
 			return True
-
 	print "failed to set_stat"
 	return False
 
@@ -158,7 +153,7 @@ class communication():
 	def __init__(self):
 		self.connected = False
 
-	def connect(self, ip_address, port) :
+	def connect(self, ip_address, port):
 		global sock
 		sock = socket.socket()
 		try:
@@ -175,7 +170,7 @@ class communication():
 		self.rec_thread.start()
 		self.connected = True
 		self.joystick = jstick()
-		self.next_update = threading.Timer(0.2,self.update)
+		self.next_update = threading.Timer(0.2, self.update)
 		self.next_update.start()
 		return True
 
@@ -193,7 +188,6 @@ class communication():
 		return True
 
 	def update(self):
-		global stats
 		data = "" 
 		self.joystick.update()
 		for stat in stats:	
@@ -209,7 +203,6 @@ class communication():
 		return
 
 	def send_packet(self, data, mode):
-		global sock
 		if self.connected == False:
 			print "not connected"
 			return False
@@ -219,7 +212,7 @@ class communication():
 			return False
 
 		if len(data) < 0 or len(data) > 255:
-			print "Error length:" ,length
+			print "Error length:" , len(data)
 			return
 
 		#add leading nulls
@@ -263,7 +256,7 @@ class receive_thread(threading.Thread):
 					end = True
 					continue
 			if end != True:
-				self.handle_package(mode,data)
+				self.handle_package(mode, data)
 			data = ''
 		return
 	
@@ -276,7 +269,7 @@ class receive_thread(threading.Thread):
 			length = len(var_list) 	
 			i = 0
 			while i < length-1:
-				if set_stat(var_list[i],int(var_list[i+1]),1)== False:
+				if set_stat(var_list[i], int(var_list[i+1]), 1)== False:
 					print "unknown var in Package update"
 				i += 2
 
@@ -348,7 +341,7 @@ class main:
 		
 		self.options_box.remote_ip = gtk.HBox()
 		self.options_box.remote_ip.entry = gtk.Entry(15)
-		self.options_box.remote_ip.entry.set_text("192.168.2.11");
+		self.options_box.remote_ip.entry.set_text("192.168.2.11")
 		self.options_box.remote_ip.connect_button = gtk.Button(" Connect  ")
 		self.options_box.remote_ip.pack_start(self.options_box.remote_ip.entry, False, False, 13)
 		self.options_box.remote_ip.pack_start(self.options_box.remote_ip.connect_button, False, False, 3)
@@ -362,11 +355,11 @@ class main:
 		#Control Frame:
 		control_frame = gtk.Frame()
 		control_frame.set_label("Controlling")
-		control_frame.add(control_box);
+		control_frame.add(control_box)
 
 		control_box.sides = gtk.HBox()
-		control_box.up_box = gtk.HBox();
-		control_box.down_box = gtk.HBox();
+		control_box.up_box = gtk.HBox()
+		control_box.down_box = gtk.HBox()
 		
 		control_box.up = create_arrow_button(gtk.ARROW_UP, gtk.SHADOW_IN, "Forwards")
 		control_box.left = create_arrow_button(gtk.ARROW_LEFT, gtk.SHADOW_IN, "Left")		
@@ -389,8 +382,8 @@ class main:
 		control_box.left.connect("pressed", self.pressed_handler, "left")
 		control_box.right.connect("pressed", self.pressed_handler, "right")
 					
-		self.window.connect("key-press-event",self.click_event)
-		self.window.connect("key-release-event",self.click_event)
+		self.window.connect("key-press-event", self.click_event)
+		self.window.connect("key-release-event", self.click_event)
 
 		#Singals and Infos about the car:
 		stuff_box.battery = gtk.ProgressBar()
@@ -398,7 +391,7 @@ class main:
 		stuff_box.sig_strength = gtk.ProgressBar()
 		stuff_box.sig_strength.set_text("Signal strength")
 		stuff_box.speed = gtk.Label("N/A Km/h")
-		stuff_box.temp = gtk.Label("N/A Degrees C.");
+		stuff_box.temp = gtk.Label("N/A Degrees C.")
 
 		#add the widgets to the boxes
 		self.options_box.pack_start(self.options_box.lights, False, False, 3)
@@ -423,33 +416,32 @@ class main:
 		#add the main_box to the window
 		self.window.add(main_box)
 
-		# The final step is to display all widget.
+		# The final step is to display all widgets.
 		self.window.show_all()	
 
 		#do some initializations
 		self.car = communication()
-		
 		init_stats()
 
-	def options_handler(self, widget, data=None):
+	def options_handler(self, widget, data = None):
 		if data == "debug" :
 			val = 0
 			if widget.get_active():
 				val = 1
-			self.do_action(DEBUG_INDEX,val)
+			self.do_action(DEBUG_INDEX, val)
 		if data == "logging" :
 			print "logging is checked"
 		if data == "lights":
 			val = 0
 			if widget.get_active():
 				val = 1
-			self.do_action(LIGHTS_INDEX,val)
+			self.do_action(LIGHTS_INDEX, val)
 		if data == "connect_button":
 			if widget.get_label() == "Disconnect":
-				if self.car.disconnect() == True:
+				if self.car.disconnect():
 					widget.set_label(" Connect ")
 			else:
-				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 2005) == True:
+				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 2005):
 					widget.set_label("Disconnect")
 					self.car.send_packet(data, REQUEST)	#get stats
 
@@ -462,59 +454,61 @@ class main:
 		if data == "forward":
 			self.up_clicked = 0
 			value = ((MAX_VALUE+1)/2) 
-			self.do_action(ACCEL_INDEX,value)
+			self.do_action(ACCEL_INDEX, value)
 		if data == "backward":
-			self.up_clicked = 0
+			self.down_clicked = 0
 			value = ((MAX_VALUE+1)/2) 
-			self.do_action(ACCEL_INDEX,value)
+			self.do_action(ACCEL_INDEX, value)
 		if data == "left":
 			value = ((MAX_VALUE+1)/2) 
 			self.left_clicked = 0
-			self.do_action(STEERING_INDEX,value)
+			self.do_action(STEERING_INDEX, value)
 		if data == "right":
 			value = ((MAX_VALUE+1)/2) 
-			self.left_clicked = 0
-			self.do_action(STEERING_INDEX,value)
+			self.right_clicked = 0
+			self.do_action(STEERING_INDEX, value)
 
 	def pressed_handler(self, widget, data):	
 		if data == "forward":
 			self.up_clicked = 1
 			value = (MAX_VALUE) 
-			self.do_action(ACCEL_INDEX,value)
+			self.do_action(ACCEL_INDEX, value)
 		if data == "backward":
-			self.up_clicked = 1
+			self.down_clicked = 1
 			value = 0
-			self.do_action(ACCEL_INDEX,value)
+			self.do_action(ACCEL_INDEX, value)
 		if data == "left":
 			value = (MAX_VALUE) 
 			self.left_clicked = 1
-			self.do_action(STEERING_INDEX,value)
+			self.do_action(STEERING_INDEX, value)
 		if data == "right":
 			value = 0 
-			self.left_clicked = 1
-			self.do_action(STEERING_INDEX,value)
+			self.right_clicked = 1
+			self.do_action(STEERING_INDEX, value)
 
 	def click_event(self, widget, event):
 		key = gtk.gdk.keyval_name(event.keyval)
 		if event.type == gtk.gdk.KEY_PRESS:
         		if (key == "w" or key == "Up") and self.up_clicked == 0:
-				pressed_handler(None,"forward")
+				key = "forward"
 			if (key == "a" or key == "Right") and self.right_clicked == 0:
-				pressed_handler(None,"right")
+				key = "right"
 			if (key == "s" or key == "Down") and self.down_clicked == 0:
-				pressed_handler(None,"backward")
+				key = "backward"
 			if (key == "d" or key == "Left") and self.left_clicked == 0:
-				pressed_handler(None,"left")
+				key = "left"
+			self.pressed_handler(None, key)
 
 		if event.type == gtk.gdk.KEY_RELEASE:	
         		if (key == "w" or key == "Up") and self.up_clicked == 1:
-				released_handler(None,"forward")
+				key = "forward"
 			if (key == "a" or key == "Right") and self.right_clicked == 1:
-				released_handler(None,"right")
+				key = "right"
 			if (key == "s" or key == "Down") and self.down_clicked == 1:
-				released_handler(None,"backward")
+				key = "backward"
 			if (key == "d" or key == "Left") and self.left_clicked == 1:
-				released_handler(None,"backward")
+				key = "left"
+			self.released_handler(None, key)
 
 	def do_action(self, index, value):
 		if index == STEERING_INDEX or index == ACCEL_INDEX:
