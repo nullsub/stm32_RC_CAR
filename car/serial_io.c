@@ -206,7 +206,7 @@ void serial_task(void *pvParameters)	//term-task
 
 	tprintf("\n$");
 	for (;;) {
-		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY); //blocks
+		xQueueReceive(uart_receive_queue, &ch, portMAX_DELAY); //blocking
 		switch (ch) {
 			case '\b':
 				if (crrnt_cmd_i > 0) {

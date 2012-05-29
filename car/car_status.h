@@ -24,4 +24,4 @@ void status_set_var(char *name, int val);
 void status_init();
 void status_get_var_str(char *buffer);
 
-#endif				// CAR_STATUS_H
+#endif	// CAR_STATUS_H

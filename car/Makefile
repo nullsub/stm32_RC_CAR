@@ -238,7 +238,7 @@ CSTANDARD = -std=gnu99
 # Flags for C and C++ (arm-elf-gcc/arm-elf-g++)
 
 ifeq ($(DEBUG),YES)
-CFLAGS = -g$(DEBUGF)
+CFLAGS += -g$(DEBUGF)
 endif
 
 CFLAGS += -O$(OPT)

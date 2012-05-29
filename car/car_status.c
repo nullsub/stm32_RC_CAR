@@ -77,7 +77,6 @@ void status_update_var(int index, int val)
 		}
 		current_val = current_val->next;
 	}
-
 }
 
 //get var string of the remote_controlled vars

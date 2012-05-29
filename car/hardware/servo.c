@@ -75,9 +75,8 @@ void servo_set(unsigned int val, int pin)
 
 unsigned int servo_get(unsigned int index)
 {
-	if (index >= NR_OF_SERVOS) {
+	if (index >= NR_OF_SERVOS)
 		return 9999;
-	}
 
 	return (servos[index].time - servos[index].calibration);
 }
@@ -119,7 +118,6 @@ void tim2_isr(void)
 void servo_cal()
 {
 	for (int i = 0; i < NR_OF_SERVOS; i++) {
-		servos[i].calibration =
-		    (servos[i].time) - SERVO_MIDDLE;
+		servos[i].calibration = servos[i].time - SERVO_MIDDLE;
 	}
 }

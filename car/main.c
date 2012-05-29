@@ -221,11 +221,7 @@ void setup_exti(void)
 	EXTI_Init(&EXTI_InitStructure);
 }
 
-/**
- * @brief  Configures USART controller
- * @param  None
- * @retval None
- */
+//Configures USART controller
 void setup_usart(void)
 {
 	USART_InitTypeDef usart_init;
@@ -242,11 +238,7 @@ void setup_usart(void)
 	USART_Cmd(USART1, ENABLE);
 }
 
-/**
- * @brief  Configure the nested vectored interrupt controller
- * @param  None
- * @retval None
- */
+//Configure the nested vectored interrupt controller
 void setup_nvic(void)
 {
 	NVIC_InitTypeDef nvic_init;
@@ -279,11 +271,7 @@ void setup_nvic(void)
 	NVIC_Init(&nvic_init);
 }
 
-/**
- * @brief  This function handles USART interrupt request.
- * @param  None
- * @retval None
- */
+//This function handles USART interrupt request.
 void usart1_isr(void)
 {
 	portBASE_TYPE task_woken;
@@ -303,11 +291,7 @@ void usart1_isr(void)
 	portEND_SWITCHING_ISR(task_woken);
 }
 
-/**
- * @brief  This function handles External line 0 interrupt request.
- * @param  None
- * @retval None
- */
+//This function handles External line 0 interrupt request.
 void exti0_isr(void)
 {
 	static signed portBASE_TYPE task_woken;
