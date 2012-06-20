@@ -57,8 +57,7 @@ static void startup_task(void *pvParameters) NORETURN;
 
 static void setup(void);
 
-static void blink_toggle_blue(void);
-static void blink_toggle_green(void);
+static void led_toggle(void);
 
 xQueueHandle uart_send_queue;
 xQueueHandle uart_receive_queue;
@@ -126,7 +125,7 @@ void startup_task(void *pvParameters)
 	xTaskHandle task;
 
 	xTaskCreate(serial_task, (signed portCHAR *)"serial",
-			configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2,
+			configMINIMAL_STACK_SIZE*3, NULL, tskIDLE_PRIORITY + 2,
 			&task);
 	assert_param(task);
 
@@ -308,7 +307,7 @@ void button_task(void *pvParameters)
 	portTickType delay = portMAX_DELAY;
 	uint8_t debounce = 0;
 
-	blink_toggle_blue();
+	led_toggle();
 
 	for (;;) {
 		if (xSemaphoreTake(debounce_sem, delay) == pdTRUE) {
@@ -322,27 +321,22 @@ void button_task(void *pvParameters)
 
 			if (button_state == BUTTON_STATE_UP && button) {
 				button_state = BUTTON_STATE_DOWN;
-				blink_toggle_blue();
+				led_toggle();
 				debug_msg("bprssd");
 			} else if (button_state == BUTTON_STATE_DOWN && !button) {
 				button_state = BUTTON_STATE_UP;
 				debug_msg("brlsd");
 			}
-
 			debounce = 0;
 			delay = portMAX_DELAY;
 		}
 	}
 }
 
-void blink_toggle_blue()
+void led_toggle()
 {
 	GPIO_WriteBit(GPIOC, GPIO_Pin_8, led_blue);
 	led_blue ^= 1;
-}
-
-void blink_toggle_green()
-{
 	GPIO_WriteBit(GPIOC, GPIO_Pin_9, led_green);
 	led_green ^= 1;
 }

@@ -23,3 +23,9 @@ http://gostm32.blogspot.com/2010/09/installing-gnu-arm-toolkit.html
 http://stm32.spacevs.com/
 http://code.google.com/p/stm32flash/source/checkout
 http://fun-tech.se/stm32/gcc/index.php
+
+ser2net:
+conf:
+2000:raw:600:/dev/ttyS0:9600 NONE 1STOPBIT 8DATABITS -XONXOFF -LOCAL -RTSCTS
+connect to it either with the remote app or with:
+nc 192.168.2.x 2000

@@ -21,7 +21,7 @@
  # with this program; if not, write to the Free Software Foundation, Inc.,
  # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  #####
-
+#$HOME/arm-cs-tools/bin //added here the new toolchain!
 
 # Set developer code and compile options
 # Set to YES for debugging
@@ -32,11 +32,9 @@ DEBUG ?= YES
 #USE_TERMINAL ?= YES 
 
 # Toolchain prefix (i.e arm-elf- -> arm-elf-gcc.exe)
-TCHAIN_PREFIX = arm-none-eabi-
+TCHAIN_PREFIX = /home/chrisu/arm-cs-tools/bin/arm-none-eabi-
 
 REMOVE_CMD = rm
-
-FLASH_TOOL = OPENOCD
 
 # YES enables -mthumb option to flags for source-files listed
 # in SRC and CPPSRC
@@ -58,7 +56,7 @@ STACK_SIZE ?= 1024
 OUTDIR = build
 
 # Target file name (without extension).
-TARGET = template
+TARGET = rc_car
 
 # Paths
 COMMONDIR = common
@@ -212,7 +210,7 @@ endif
 # 0 = turn off optimization. s = optimize for size.
 # (Note: 3 is not always the best optimization level. See avr-libc FAQ.)
 
-OPT = s
+OPT = 2
 
 # Place project-specific -D and/or -U options for
 # Assembler with preprocessor here.
@@ -286,33 +284,6 @@ LDFLAGS += -lc -lgcc
 LDFLAGS +=-T$(LINKERSCRIPTPATH)/$(CHIP).ld
 LDFLAGS +=-T$(LINKERSCRIPTPATH)/stm32f1xx.ld
 
-# ---------------------------------------------------------------------------
-# Options for OpenOCD flash-programming
-# see openocd.pdf/openocd.texi for further information
-#
-OPENOCD_LOADFILE+=$(OUTDIR)/$(TARGET).elf
-# if OpenOCD is in the $PATH just set OPENOCDEXE=openocd
-OPENOCD=openocd
-# debug level
-OPENOCD_CMD=-d0
-# interface and board/target settings (using the OOCD target-library here)
-OPENOCD_CMD+=-f debug/openocd.cfg
-# initialize
-OPENOCD_CMD+=-c init
-# show the targets
-OPENOCD_CMD+=-c targets
-# commands to prepare flash-write
-OPENOCD_CMD+= -c "reset halt"
-# flash erase
-OPENOCD_CMD+=-c "stm32x mass_erase 0"
-# flash-write
-OPENOCD_CMD+=-c "flash write_image $(OPENOCD_LOADFILE)"
-# Verify
-OPENOCD_CMD+=-c "verify_image $(OPENOCD_LOADFILE)"
-# reset target
-OPENOCD_CMD+=-c "reset run"
-# terminate OOCD after programming
-OPENOCD_CMD+=-c shutdown
 # ---------------------------------------------------------------------------
 
 # Define programs and commands.
@@ -401,18 +372,6 @@ gccversion:
 gdb:
 	$(GDB) -x debug/gdb.cmd
 
-# Program the device.
-ifeq ($(FLASH_TOOL),OPENOCD)
-# Program the device with Dominic Rath's OPENOCD in "batch-mode", needs cfg and "reset-script".
-program: $(OUTDIR)/$(TARGET).elf
-	@echo "Programming with OPENOCD"
-	$(OPENOCD) $(OPENOCD_CMD)
-
-openocd: $(OUTDIR)/$(TARGET).elf
-	@echo "Start OPENOCD"
-	$(OPENOCD) -f debug/openocd.cfg
-endif
-
 # Create final output file (.hex) from ELF output file.
 %.hex: %.elf
 ##	@echo
@@ -468,11 +427,12 @@ endef
 $(foreach src, $(ASRCARM), $(eval $(call ASSEMBLE_ARM_TEMPLATE, $(src))))
 
 # Compile: create object files from C source files.
+NO_OP = stm32/Libraries/CMSIS/CM3/CoreSupport/core_cm3.c #buggy toolchain breaks if this file is optimized!
 define COMPILE_C_TEMPLATE
 $(OUTDIR)/$(notdir $(basename $(1))).o : $(1)
 ##	@echo
 	@echo $(MSG_COMPILING) $$< "->" $$@
-	$(CC) -c $(THUMB) $$(CFLAGS) $$(CONLYFLAGS) $$< -o $$@
+	@if [ "$$<" = $(NO_OP) ]; then echo "No optimization" && $(CC) -c $(THUMB) $$(CFLAGS) $$(CONLYFLAGS) -O0 $$< -o $$@; else $(CC) -c $(THUMB) $$(CFLAGS) $$(CONLYFLAGS) $$< -o $$@; fi
 endef
 $(foreach src, $(SRC), $(eval $(call COMPILE_C_TEMPLATE, $(src))))
 
@@ -513,9 +473,8 @@ $(SRCARM:.c=.s) : %.s : %.c
 	@echo $(MSG_ASMFROMC_ARM) $< to $@
 	$(CC) -S $(CFLAGS) $(CONLYFLAGS) $< -o $@
 
-# Generate Doxygen documents
-#docs:
-#	doxygen  $(DOXYGENDIR)/doxygen.cfg
+flash:
+	../../stlink/flash/st-flash write /dev/sg0 ./build/rc_car.bin 0x8000000
 
 # Target: clean project.
 clean:

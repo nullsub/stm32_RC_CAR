@@ -36,9 +36,9 @@ BATTERY_INDEX = '6'
 
 def convert_to_servo(value):
 	tmp = float(value)
-	tmp = ((tmp*(float(150)/float(MAX_VALUE+1)))+float(150)) #the car expects 150 to be left, and 300 right. so 225 is middle
+	tmp = tmp*(float(150)/float(MAX_VALUE+1)) + float(150) #the car expects 150 to be left, and 300 right. so 225 is middle
 	tmp += 0.5 #correct rounding
-	return (int(tmp))
+	return int(tmp)
 
 class jstick(): 
 	def __init__(self):
@@ -53,22 +53,28 @@ class jstick():
 	def update(self):
 		try:
 			pygame.event.pump()
-			ev_list = pygame.event.get([pygame.JOYBUTTONDOWN, pygame.JOYHATMOTION, pygame.JOYAXISMOTION, pygame.JOYAXISMOTION])
+			ev_list = pygame.event.get([pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP, pygame.JOYHATMOTION, pygame.JOYAXISMOTION, pygame.JOYAXISMOTION])
 		except:
 			print "exception in joystick update"
 			return
 		for ev in ev_list:
+			print "updateting!!"
 			if ev.type == pygame.JOYHATMOTION:
 				print "joyhatmotion"
 			elif ev.type == pygame.JOYBUTTONDOWN:
-				print "joybutton"
+				if ev.button == 0:	
+					value = (convert_to_servo(MAX_VALUE)/2)+150
+					set_stat(ACCEL_INDEX, value, 0)
+			elif ev.type == pygame.JOYBUTTONUP:
+				if ev.button == 0:
+					set_stat(ACCEL_INDEX, 150, 0)
 			elif ev.type == pygame.JOYAXISMOTION:
 				value = convert_to_servo(ev.value*MAX_VALUE)
 				value = (value/2)+150 #why this??
 				if ev.axis == 0:
 					set_stat(STEERING_INDEX, value, 0)
-				elif ev.axis == 1: 
-					set_stat(ACCEL_INDEX, value, 0)
+				#elif ev.axis == 1: 
+					#set_stat(ACCEL_INDEX, value, 0)
 		return
 	
 class stat:
@@ -197,9 +203,8 @@ class communication():
 				data += "{val} ".format(val = stat.get_val())
 		self.next_update = threading.Timer(0.15, self.update)
 		self.next_update.start() 
-		if data == "":
-			return
-		self.send_packet(data, UPDATE)
+		if data != "":
+			self.send_packet(data, UPDATE)
 		return
 
 	def send_packet(self, data, mode):
@@ -240,7 +245,7 @@ class receive_thread(threading.Thread):
 			length = int(data)
 			try:	
 				data = sock.recv(1)	#mode
-			except	:
+			except:
 				print "couldnt receive packet type"
 				continue
 			if len(data) == 0:
@@ -251,7 +256,7 @@ class receive_thread(threading.Thread):
 			while len(data) < length and end == False:
 				try: 
 					data += sock.recv(length-len(data)) #data
-				except :
+				except:
 					print "couldnt receive the data"
 					end = True
 					continue
@@ -269,7 +274,7 @@ class receive_thread(threading.Thread):
 			length = len(var_list) 	
 			i = 0
 			while i < length-1:
-				if set_stat(var_list[i], int(var_list[i+1]), 1)== False:
+				if set_stat(var_list[i], int(var_list[i+1]), 1) == False:
 					print "unknown var in Package update"
 				i += 2
 
@@ -281,7 +286,7 @@ class receive_thread(threading.Thread):
 				float(float(battery.get_val())/float(100)))	
 		elif mode == REQUEST:
 			print "request" 
-		else :
+		else:
 			print "unknown mode"
 			return False
 		return True
@@ -441,7 +446,7 @@ class main:
 				if self.car.disconnect():
 					widget.set_label(" Connect ")
 			else:
-				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 2005):
+				if self.car.connect(self.options_box.remote_ip.entry.get_text(), 2000):
 					widget.set_label("Disconnect")
 					self.car.send_packet(data, REQUEST)	#get stats
 

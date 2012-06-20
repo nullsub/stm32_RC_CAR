@@ -17,3 +17,8 @@ TODO/currnent state:
 	-radio transmission still needs some thoughts.... I think the the RFXX chips 
 	 	are quite nice...
 		
+
+./st-flash  write /dev/sg0 ./../../stm32_RC_CAR/car/build/template.bin 0x8000000
+
+
+Using the toolchain from https://github.com/hugovincent/arm-eabi-toolchain 
