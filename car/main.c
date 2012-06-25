@@ -190,7 +190,7 @@ void setup_gpio(void)
 	GPIO_Init(GPIOA, &gpio_init);
 
 	//config LED pins and servo
-	gpio_init.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9 | SERVO_PIN_0 | SERVO_PIN_1;	// do this in servo.c servo_init()
+	gpio_init.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9 | ALL_SERVO_PINS;
 	gpio_init.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_Init(GPIOC, &gpio_init);
 

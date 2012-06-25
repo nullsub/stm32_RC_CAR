@@ -13,8 +13,6 @@
 
 #define SERVO_UPDATE_TIME_MS 19	// the update period of the servos. this time is not critical
 
-#define ALL_SERVO_PINS (SERVO_PIN_0 |  SERVO_PIN_1)
-
 struct servo {
 	int pin;
 	volatile signed int calibration;
@@ -30,7 +28,7 @@ void servo_init()
 
 	for (int i = 0; i < NR_OF_SERVOS; i++) {
 		servos[i].calibration = 0;
-		servo_set(SERVO_MIDDLE, servos[i].pin);
+		servo_set(SERVO_MIDDLE, i);
 	}
 
 	TIM_TimeBaseInitTypeDef timer_settings;
@@ -56,21 +54,15 @@ void servo_init()
 	TIM_Cmd(TIM2, ENABLE);
 }
 
-void servo_set(unsigned int val, int pin)
+void servo_set(unsigned int val, unsigned int index)
 {
 	if (val < SERVO_MIN || val > SERVO_MAX) {
 		return;
 	}
-	if (pin == 99) {
+	if (index >= NR_OF_SERVOS) {
 		return;
 	}
-
-	for (int i = 0; i < NR_OF_SERVOS; i++) {
-		if (servos[i].pin == pin) {
-			servos[i].time = val + servos[i].calibration;	// 150 is left, 300 is right , 225 is middle!
-			break;
-		}
-	}
+	servos[index].time = val + servos[index].calibration;	// 150 is left, 300 is right , 225 is middle!
 }
 
 unsigned int servo_get(unsigned int index)

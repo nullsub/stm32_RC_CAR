@@ -13,13 +13,15 @@
 #define SERVO_PIN_1  	GPIO_Pin_1
 #define SERVO_PIN_2  	EOROROORORORORO
 
+#define ALL_SERVO_PINS (SERVO_PIN_0 |  SERVO_PIN_1)
+
 #define SERVO_MIDDLE 	225
 
 #define STEERING_SERVO SERVO_PIN_1
 #define ACCEL_SERVO SERVO_PIN_0
 
 void servo_init();
-void servo_set(unsigned int val, int pin);
+void servo_set(unsigned int val, unsigned int index);
 unsigned int servo_get(unsigned int index);
 void servo_cal();
 

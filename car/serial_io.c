@@ -290,17 +290,6 @@ void cmd_servo(char *args)
 	int servo_val = atoi(arg2);
 
 	tprintf("set servo nr %i to %i \n", servo_nr, servo_val);
-
-	switch (servo_nr) {
-		case 0:
-			servo_nr = SERVO_PIN_0;
-			break;
-		case 1:
-			servo_nr = SERVO_PIN_1;
-			break;
-		default:
-			servo_nr = 99;
-	}
 	servo_set(servo_val, servo_nr);
 }
 
