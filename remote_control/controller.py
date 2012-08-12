@@ -33,7 +33,6 @@ TEMP_INDEX = '4'
 SPEED_INDEX = '5'
 BATTERY_INDEX = '6'
 
-
 def convert_to_servo(value):
 	tmp = float(value)
 	tmp = tmp*(float(150)/float(MAX_VALUE+1)) + float(150) #the car expects 150 to be left, and 300 right. so 225 is middle
@@ -53,28 +52,29 @@ class jstick():
 	def update(self):
 		try:
 			pygame.event.pump()
-			ev_list = pygame.event.get([pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP, pygame.JOYHATMOTION, pygame.JOYAXISMOTION, pygame.JOYAXISMOTION])
+			ev_list = pygame.event.get([pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP, pygame.JOYAXISMOTION])
 		except:
 			print "exception in joystick update"
 			return
 		for ev in ev_list:
-			print "updateting!!"
-			if ev.type == pygame.JOYHATMOTION:
-				print "joyhatmotion"
-			elif ev.type == pygame.JOYBUTTONDOWN:
+			if ev.type == pygame.JOYBUTTONDOWN:
+				print "button is ", ev.button
 				if ev.button == 0:	
-					value = (convert_to_servo(MAX_VALUE)/2)+150
+					value = 300
+					set_stat(ACCEL_INDEX, value, 0)
+				if ev.button == 1:	
+					value = 150
 					set_stat(ACCEL_INDEX, value, 0)
 			elif ev.type == pygame.JOYBUTTONUP:
 				if ev.button == 0:
-					set_stat(ACCEL_INDEX, 150, 0)
+					set_stat(ACCEL_INDEX, 225, 0)
+				if ev.button == 1:
+					set_stat(ACCEL_INDEX, 225, 0)
 			elif ev.type == pygame.JOYAXISMOTION:
 				value = convert_to_servo(ev.value*MAX_VALUE)
 				value = (value/2)+150 #why this??
 				if ev.axis == 0:
 					set_stat(STEERING_INDEX, value, 0)
-				#elif ev.axis == 1: 
-					#set_stat(ACCEL_INDEX, value, 0)
 		return
 	
 class stat:
@@ -92,7 +92,7 @@ class stat:
 		self.lock.release()
 	
 	def get_car_controlled(self):
-		return self.car_controlled	
+		return self.car_controlled
 	
 	def get_index(self):
 		return self.index
@@ -122,11 +122,11 @@ battery = 0
 def init_stats():
 	global stats
 
-	global steering 
-	global accel 	
-	global lights 
-	global debug 
-	global temp 
+	global steering
+	global accel
+	global lights
+	global debug
+	global temp
 	global speed
 	global battery
 		
@@ -249,7 +249,7 @@ class receive_thread(threading.Thread):
 				print "couldnt receive packet type"
 				continue
 			if len(data) == 0:
-				print "bug in app"
+				print "Debug: Len is 0"
 			mode = data
 			data = ''
 			end = False
@@ -338,7 +338,9 @@ class main:
 		self.options_box = gtk.HBox()
 		control_box = gtk.VBox()
 		stuff_box = gtk.HBox()	
-		
+        	
+		self.window.set_title("Remote Controller")
+
 		#option field:
 		self.options_box.lights = gtk.CheckButton("Lights")
 		self.options_box.logging = gtk.CheckButton("Logging")
@@ -367,9 +369,9 @@ class main:
 		control_box.down_box = gtk.HBox()
 		
 		control_box.up = create_arrow_button(gtk.ARROW_UP, gtk.SHADOW_IN, "Forwards")
-		control_box.left = create_arrow_button(gtk.ARROW_LEFT, gtk.SHADOW_IN, "Left")		
-		control_box.right = create_arrow_button(gtk.ARROW_RIGHT, gtk.SHADOW_IN, "Right")		
-		control_box.down = create_arrow_button(gtk.ARROW_DOWN, gtk.SHADOW_IN, "Backwards")		
+		control_box.left = create_arrow_button(gtk.ARROW_LEFT, gtk.SHADOW_IN, "Left")
+		control_box.right = create_arrow_button(gtk.ARROW_RIGHT, gtk.SHADOW_IN, "Right")
+		control_box.down = create_arrow_button(gtk.ARROW_DOWN, gtk.SHADOW_IN, "Backwards")
 
 		control_box.sides.pack_start(control_box.left, True, False, 20)
 		control_box.sides.pack_start(control_box.right, True, False, 20)
@@ -380,7 +382,7 @@ class main:
 		control_box.up.connect("released", self.released_handler, "forward")
 		control_box.down.connect("released", self.released_handler, "backward")
 		control_box.left.connect("released", self.released_handler, "left")
-		control_box.right.connect("released", self.released_handler, "right")	
+		control_box.right.connect("released", self.released_handler, "right")
 
 		control_box.up.connect("pressed", self.pressed_handler, "forward")
 		control_box.down.connect("pressed", self.pressed_handler, "backward")
@@ -390,7 +392,7 @@ class main:
 		self.window.connect("key-press-event", self.click_event)
 		self.window.connect("key-release-event", self.click_event)
 
-		#Singals and Infos about the car:
+		#Singals and Infos about the car
 		stuff_box.battery = gtk.ProgressBar()
 		stuff_box.battery.set_text("Battery")
 		stuff_box.sig_strength = gtk.ProgressBar()
@@ -417,7 +419,8 @@ class main:
 		main_box.pack_start(self.options_box, True, False, 13)
 		main_box.pack_start(control_frame, True, True, 13)
 		main_box.pack_start(stuff_box, True, False, 13)
-	
+
+
 		#add the main_box to the window
 		self.window.add(main_box)
 
@@ -455,7 +458,7 @@ class main:
 	right_clicked = 0
 	left_clicked = 0
 
-	def released_handler(self, widget, data):	
+	def released_handler(self, widget, data):
 		if data == "forward":
 			self.up_clicked = 0
 			value = ((MAX_VALUE+1)/2) 

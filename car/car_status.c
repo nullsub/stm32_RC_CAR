@@ -67,11 +67,13 @@ void status_update_var(int index, int val)
 	while (current_val != 0x00) {
 		if (current_val->index == index && current_val->remote_controlled == 1) {
 			current_val->val = val;
-			if(current_val->index == STEERING_INDEX) {
-				servo_set(val, STEERING_SERVO);
-			}
-			if(current_val->index == ACCEL_INDEX) {
-				servo_set(val, ACCEL_SERVO);
+			switch(current_val->index) {
+				case STEERING_INDEX:
+					servo_set(val, STEERING_INDEX);
+					break;
+				case ACCEL_INDEX:
+					servo_set(val, ACCEL_INDEX);
+					break;
 			}
 			return;
 		}
