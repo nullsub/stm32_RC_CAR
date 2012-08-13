@@ -21,6 +21,8 @@ import pygame
 sock = 0
 MAX_VALUE = (sys.maxint-1) 
 
+MAX_SPEED = 25
+
 UPDATE = '1'
 REQUEST = '2'
 DEBUG = '0'
@@ -60,10 +62,10 @@ class jstick():
 			if ev.type == pygame.JOYBUTTONDOWN:
 				print "button is ", ev.button
 				if ev.button == 0:	
-					value = 300
+					value = 225-MAX_SPEED
 					set_stat(ACCEL_INDEX, value, 0)
 				if ev.button == 1:	
-					value = 150
+					value = 225+MAX_SPEED
 					set_stat(ACCEL_INDEX, value, 0)
 			elif ev.type == pygame.JOYBUTTONUP:
 				if ev.button == 0:
