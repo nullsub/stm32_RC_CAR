@@ -32,7 +32,7 @@ DEBUG ?= YES
 #USE_TERMINAL ?= YES 
 
 # Toolchain prefix (i.e arm-elf- -> arm-elf-gcc.exe)
-TCHAIN_PREFIX = /home/chrisu/arm-cs-tools/bin/arm-none-eabi-
+TCHAIN_PREFIX = arm-none-eabi-
 
 REMOVE_CMD = rm
 
@@ -210,7 +210,7 @@ endif
 # 0 = turn off optimization. s = optimize for size.
 # (Note: 3 is not always the best optimization level. See avr-libc FAQ.)
 
-OPT = 2
+OPT = 1
 
 # Place project-specific -D and/or -U options for
 # Assembler with preprocessor here.
